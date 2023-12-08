@@ -311,19 +311,20 @@ bool ESP8266_SendString(FunctionalState enumEnUnvarnishTx, char *pStr, u32 ulStr
 char *ESP8266_ReceiveString(FunctionalState enumEnUnvarnishTx)
 {
 	char *pRecStr = 0;
-	// u16 out_flag = 30000;
+	u16 out_flag = 300;
 
 	strEsp8266_Fram_Record.InfBit.FramLength = 0;
 	strEsp8266_Fram_Record.InfBit.FramFinishFlag = 0;
-	while (!strEsp8266_Fram_Record.InfBit.FramFinishFlag);
-	// 等待信息的到来
-	// while (out_flag--)
-	// 	;
-	// if (!strEsp8266_Fram_Record.InfBit.FramFinishFlag)
-	// {
-	// 	// 超时返回空字符串
-	// 	return NULL;
-	// }
+	// 防止太快了被忽略
+	while(out_flag--);
+	// 如果没有正在接收消息，那就直接返回空
+	if (!strEsp8266_Fram_Record.InfBit.FramReceivingFlag)
+	{
+		return NULL;
+	}
+	// 说明正在接收，等待接收完成
+	while (!strEsp8266_Fram_Record.InfBit.FramFinishFlag)
+		;
 	strEsp8266_Fram_Record.Data_RX_BUF[strEsp8266_Fram_Record.InfBit.FramLength] = '\0';
 	pRecStr = strEsp8266_Fram_Record.Data_RX_BUF;
 	printf("[ESP8266_ReceiveString] %s\r\n", pRecStr);

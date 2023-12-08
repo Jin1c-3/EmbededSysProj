@@ -40,7 +40,7 @@ typedef enum
 	WPA_WPA2_PSK = 4,
 } ENUM_AP_PsdMode_TypeDef;
 
-#define RX_BUF_MAX_LEN 1024 // 最大接收缓存字节数
+#define RX_BUF_MAX_LEN 1024		 // 最大接收缓存字节数
 
 extern struct STRUCT_USARTx_Fram // 串口数据帧的处理结构体
 {
@@ -48,11 +48,12 @@ extern struct STRUCT_USARTx_Fram // 串口数据帧的处理结构体
 
 	union
 	{
-		__IO u16 InfAll;
+		__IO u32 InfAll;
 		struct
 		{
-			__IO u16 FramLength : 15;	 // 14:0
-			__IO u16 FramFinishFlag : 1; // 15
+			__IO u32 FramLength : 30;		// 29:0
+			__IO u32 FramReceivingFlag : 1; // 30
+			__IO u32 FramFinishFlag : 1;	// 31
 		} InfBit;
 	};
 

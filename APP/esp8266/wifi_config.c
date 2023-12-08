@@ -70,6 +70,7 @@ void USART3_IRQHandler(void)
 
 	if (USART_GetITStatus(USART3, USART_IT_RXNE) != RESET)
 	{
+		strEsp8266_Fram_Record.InfBit.FramReceivingFlag = 1;
 		ch = USART_ReceiveData(USART3);
 
 		if (strEsp8266_Fram_Record.InfBit.FramLength < (RX_BUF_MAX_LEN - 1)) // 预留1个字节写结束符
@@ -81,7 +82,7 @@ void USART3_IRQHandler(void)
 	if (USART_GetITStatus(USART3, USART_IT_IDLE) == SET) // 数据帧接收完毕
 	{
 		strEsp8266_Fram_Record.InfBit.FramFinishFlag = 1;
-
+		strEsp8266_Fram_Record.InfBit.FramReceivingFlag = 0;
 		ch = USART_ReceiveData(USART3); // 由软件序列清除中断标志位(先读USART_SR，然后读USART_DR)
 	}
 }

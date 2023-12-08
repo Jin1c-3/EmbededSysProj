@@ -13,9 +13,15 @@
 #include "pwm.h"
 #include "cJSON.h"
 #include "ws2812.h"
+#include "touch.h"
 
 #define WIFI_NAME "qing"
 #define WIFI_KEY "18289255"
+
+#define BUTTON_FIRST_x 10
+#define BUTTON_FIRST_y 60
+#define BUTTON_HEIGHT 80
+#define BUTTON_WIDTH 120
 
 // 显示错误信息
 // x,y:坐标
@@ -51,6 +57,8 @@ void Hardware_Check(void)
 	BEEP_Init();									// 蜂鸣器初始化
 	KEY_Init();										// 按键初始化
 	TIM3_CH2_PWM_Init(500, 72 - 1);					// 频率是2Kh
+
+	TP_Init(); // 触摸屏初始化
 
 	TIM_SetCompare2(TIM3, 0);
 	delay_ms(50);
@@ -175,8 +183,8 @@ int main()
 	char response[120] = {0};
 	cJSON *json;
 	char *request;
-	u8 motor_status;
-	u8 temp_humi_flag = 0;
+	u8 motor_status = 0;
+	u32 temp_humi_flag = 0;
 	u32 rgb_color[] = {RGB_COLOR_RED, RGB_COLOR_GREEN, RGB_COLOR_BLUE, RGB_COLOR_WHITE, RGB_COLOR_YELLOW, RGB_COLOR_PINK};
 
 	Hardware_Check();
@@ -186,30 +194,38 @@ int main()
 	LCD_ShowString(0, 40, tftlcd_data.width, tftlcd_data.height, 16, "sending status message...");
 	ESP8266_Cmd(response, "OK", "", 5000);
 	LCD_Fill(0, 40, tftlcd_data.width, 56, BLACK);
+	LCD_ShowString(0, 0, tftlcd_data.width, tftlcd_data.height, 16, "Temp:   degree celsius");
+	LCD_ShowString(0, 20, tftlcd_data.width, tftlcd_data.height, 16, "Humi:   %");
+	LCD_DrawRectangle(BUTTON_FIRST_x, BUTTON_FIRST_y, BUTTON_FIRST_x + BUTTON_WIDTH, BUTTON_FIRST_y + BUTTON_HEIGHT);
+	LCD_DrawRectangle(BUTTON_FIRST_x + BUTTON_WIDTH, BUTTON_FIRST_y, BUTTON_FIRST_x + BUTTON_WIDTH * 2, BUTTON_FIRST_y + BUTTON_HEIGHT);
+	LCD_DrawRectangle(BUTTON_FIRST_x, BUTTON_FIRST_y + BUTTON_HEIGHT, BUTTON_FIRST_x + BUTTON_WIDTH, BUTTON_FIRST_y + BUTTON_HEIGHT * 2);
+	LCD_DrawRectangle(BUTTON_FIRST_x + BUTTON_WIDTH, BUTTON_FIRST_y + BUTTON_HEIGHT, BUTTON_FIRST_x + BUTTON_WIDTH * 2, BUTTON_FIRST_y + BUTTON_HEIGHT * 2);
+	LCD_ShowString(BUTTON_FIRST_x + BUTTON_WIDTH / 2 - 32, BUTTON_FIRST_y + BUTTON_HEIGHT / 2 - 8, tftlcd_data.width, tftlcd_data.height, 16, "LED1");
+	LCD_ShowString(BUTTON_FIRST_x + BUTTON_WIDTH * 3 / 2 - 32, BUTTON_FIRST_y + BUTTON_HEIGHT / 2 - 8, tftlcd_data.width, tftlcd_data.height, 16, "LED2");
+	LCD_ShowString(BUTTON_FIRST_x + BUTTON_WIDTH / 2 - 32, BUTTON_FIRST_y + BUTTON_HEIGHT * 3 / 2 - 8, tftlcd_data.width, tftlcd_data.height, 16, "BEEP");
+	LCD_ShowString(BUTTON_FIRST_x + BUTTON_WIDTH * 3 / 2 - 40, BUTTON_FIRST_y + BUTTON_HEIGHT * 3 / 2 - 8, tftlcd_data.width, tftlcd_data.height, 16, "MOTOR");
 
 	do
 	{
-		temp_humi_flag++;
-		// 温湿度模块
-		DHT11_Read_Data(&temp, &humi); // 读取一次DHT11数据最少要大于100ms
-		temp_buf[0] = temp / 10 + 0x30;
-		temp_buf[1] = temp % 10 + 0x30;
-		temp_buf[2] = '\0';
-		humi_buf[0] = humi / 10 + 0x30;
-		humi_buf[1] = humi % 10 + 0x30;
-		humi_buf[2] = '\0';
-		LCD_ShowString(0, 0, tftlcd_data.width, tftlcd_data.height, 16, "Temp:   degree celsius");
-		LCD_ShowString(0, 20, tftlcd_data.width, tftlcd_data.height, 16, "Humi:   %");
-		LCD_ShowString(45, 0, tftlcd_data.width, tftlcd_data.height, 16, temp_buf);
-		LCD_ShowString(45, 20, tftlcd_data.width, tftlcd_data.height, 16, humi_buf);
-		// 发送温湿度
-		if (!((temp_humi_flag - 1) % 6))
+		if (!(temp_humi_flag++ % 400000))
 		{
+			// 温湿度模块
+			DHT11_Read_Data(&temp, &humi); // 读取一次DHT11数据最少要大于100ms
+			temp_buf[0] = temp / 10 + 0x30;
+			temp_buf[1] = temp % 10 + 0x30;
+			temp_buf[2] = '\0';
+			humi_buf[0] = humi / 10 + 0x30;
+			humi_buf[1] = humi % 10 + 0x30;
+			humi_buf[2] = '\0';
+			LCD_ShowString(45, 0, tftlcd_data.width, tftlcd_data.height, 16, temp_buf);
+			LCD_ShowString(45, 20, tftlcd_data.width, tftlcd_data.height, 16, humi_buf);
+			// 发送温湿度
 			sprintf(response, "AT+MQTTPUB=0,\"stm32\",\"{\\\"type\\\": \\\"browser-DHT11\\\"\\, \\\"temp\\\": \\\"%d\\\"\\, \\\"humi\\\": \\\"%d\\\"\\}\",0,0", temp, humi);
 			// printf("发送温湿度数据：%s，成功标志：%d\r\n", response, ESP8266_Cmd(response, "OK", "", 5000));
 			LCD_ShowString(0, 40, tftlcd_data.width, tftlcd_data.height, 16, "sending temp_humi message...");
 			ESP8266_Cmd(response, 0, 0, 5000);
 			LCD_Fill(0, 40, tftlcd_data.width, 56, BLACK);
+			printf("发送一次温湿度信息\r\n");
 		}
 
 		// wifi模块
@@ -217,9 +233,14 @@ int main()
 		if (request)
 		{
 			json = cJSON_Parse(strchr(request, '{'));
+			memset(response, 0, strlen(response));
 			if (json)
 			{
-				if (!strcmp(cJSON_GetObjectItem(json, "type")->valuestring, "LED"))
+				if (strstr(cJSON_GetObjectItem(json, "type")->valuestring, "browser"))
+				{
+					printf("browser数据，不用管\r\n");
+				}
+				else if (!strcmp(cJSON_GetObjectItem(json, "type")->valuestring, "LED"))
 				{
 					printf("type:LED\r\n");
 					LED1 = !cJSON_GetObjectItem(json, "led1")->valueint;
@@ -290,7 +311,77 @@ int main()
 			{
 				printf("json解析失败！\r\n");
 			}
+			cJSON_Delete(json);
 		}
-		cJSON_Delete(json);
+
+		// 触摸屏模块
+		if (TP_Scan(0))
+		{
+			// 防止点击后过于敏感
+			delay_ms(200);
+			if (tp_dev.y[0] > BUTTON_FIRST_y && tp_dev.y[0] <= BUTTON_FIRST_y + BUTTON_HEIGHT)
+			{
+				// LED1反转变化
+				if (tp_dev.x[0] > BUTTON_FIRST_x && tp_dev.x[0] <= BUTTON_FIRST_x + BUTTON_WIDTH)
+				{
+					LED1 = !LED1;
+					sprintf(response, "AT+MQTTPUB=0,\"stm32\",\"{\\\"type\\\": \\\"browser-LED\\\"\\, \\\"led1\\\": %d\\, \\\"led2\\\": %d\\}\",0,0", !LED1, !LED2);
+					// printf("发送LED数据：%s，成功标志：%d\r\n", response, ESP8266_Cmd(response, "OK", "", 5000));
+					LCD_ShowString(0, 40, tftlcd_data.width, tftlcd_data.height, 16, "sending LED message...");
+					ESP8266_Cmd(response, 0, 0, 5000);
+					LCD_Fill(0, 40, tftlcd_data.width, 56, BLACK);
+				}
+				// LED2反转变化
+				else if (tp_dev.x[0] > BUTTON_FIRST_x + BUTTON_WIDTH && tp_dev.x[0] <= BUTTON_FIRST_x + BUTTON_WIDTH * 2)
+				{
+					LED2 = !LED2;
+					sprintf(response, "AT+MQTTPUB=0,\"stm32\",\"{\\\"type\\\": \\\"browser-LED\\\"\\, \\\"led1\\\": %d\\, \\\"led2\\\": %d\\}\",0,0", !LED1, !LED2);
+					// printf("发送LED数据：%s，成功标志：%d\r\n", response, ESP8266_Cmd(response, "OK", "", 5000));
+					LCD_ShowString(0, 40, tftlcd_data.width, tftlcd_data.height, 16, "sending LED message...");
+					ESP8266_Cmd(response, 0, 0, 5000);
+					LCD_Fill(0, 40, tftlcd_data.width, 56, BLACK);
+				}
+			}
+			else if (tp_dev.y[0] > BUTTON_FIRST_y + BUTTON_HEIGHT && tp_dev.y[0] <= BUTTON_FIRST_y + BUTTON_HEIGHT * 2)
+			{
+				// 蜂鸣器三连
+				if (tp_dev.x[0] > BUTTON_FIRST_x && tp_dev.x[0] <= BUTTON_FIRST_x + BUTTON_WIDTH)
+				{
+					BEEP = 1;
+					delay_ms(100);
+					BEEP = 0;
+					delay_ms(50);
+					BEEP = 1;
+					delay_ms(100);
+					BEEP = 0;
+					delay_ms(50);
+					BEEP = 1;
+					delay_ms(100);
+					BEEP = 0;
+				}
+				// 电机循环变化
+				else if (tp_dev.x[0] > BUTTON_FIRST_x + BUTTON_WIDTH && tp_dev.x[0] <= BUTTON_FIRST_x + BUTTON_WIDTH * 2)
+				{
+					++motor_status > 2 ? motor_status = 0 : motor_status;
+					if (motor_status == 0)
+					{
+						TIM_SetCompare2(TIM3, 499); // 值最大可以取499，因为ARR最大值是499.
+					}
+					else if (motor_status == 1)
+					{
+						TIM_SetCompare2(TIM3, 400); // 值最大可以取499，因为ARR最大值是499.
+					}
+					else if (motor_status == 2)
+					{
+						TIM_SetCompare2(TIM3, 300); // 值最大可以取499，因为ARR最大值是
+					}
+					sprintf(response, "AT+MQTTPUB=0,\"stm32\",\"{\\\"type\\\": \\\"browser-motor\\\"\\, \\\"motor1\\\": %d\\}\",0,0", motor_status);
+					// printf("发送motor数据：%s，成功标志：%d\r\n", response, ESP8266_Cmd(response, "OK", "", 5000));
+					LCD_ShowString(0, 40, tftlcd_data.width, tftlcd_data.height, 16, "sending motor message...");
+					ESP8266_Cmd(response, 0, 0, 5000);
+					LCD_Fill(0, 40, tftlcd_data.width, 56, BLACK);
+				}
+			}
+		}
 	} while (1);
 }
