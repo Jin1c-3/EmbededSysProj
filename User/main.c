@@ -14,6 +14,16 @@
 #include "cJSON.h"
 #include "ws2812.h"
 #include "touch.h"
+#include "my_mqtt.h"
+
+#ifndef _mymqtt_H
+#define MQTT_CLIENT_ID "你的clientid"
+#define MQTT_USERNAME "你的用户名"
+#define MQTT_PASSWORD "你的密码"
+#define MQTT_IP "你的ip"
+#define MQTT_PORT "你的端口"
+#define MQTT_TOPIC "你的主题"
+#endif
 
 #define WIFI_NAME "qing"
 #define WIFI_KEY "18289255"
@@ -48,6 +58,7 @@ void Hardware_Check(void)
 	u8 fsize;
 	u16 ypos = 0;
 	u16 j = 0;
+	char command[120] = {0};
 
 	SysTick_Init(72);								// 延时初始化
 	NVIC_PriorityGroupConfig(NVIC_PriorityGroup_2); // 中断优先级分组 分2组
@@ -127,31 +138,35 @@ void Hardware_Check(void)
 	};
 
 	LCD_ShowString(5, ypos + fsize * j++, tftlcd_data.width, tftlcd_data.height, fsize, "AT+MQTTUSERCFG...");
-	while (!ESP8266_Cmd("AT+MQTTUSERCFG=0,1,\"yjy\",\"user\",\"135791\",0,0,\"\"", "OK", "", 1500))
+	sprintf(command, "AT+MQTTUSERCFG=0,1,\"%s\",\"%s\",\"%s\",0,0,\"\"", MQTT_CLIENT_ID, MQTT_USERNAME, MQTT_PASSWORD);
+	while (!ESP8266_Cmd(command, "OK", "", 1500))
 	{
 		system_error_show(5, ypos + fsize * j, "wifi connection Error!", fsize);
-		printf("AT+MQTTUSERCFG=0,1,\"yjy\",\"user\",\"135791\",0,0,\"\"\r\n");
+		printf("%s\r\n", command);
 	};
 
 	LCD_ShowString(5, ypos + fsize * j++, tftlcd_data.width, tftlcd_data.height, fsize, "AT+MQTTCONN...");
-	while (!ESP8266_Cmd("AT+MQTTCONN=0,\"101.132.78.200\",1883,1", "", "OK", 1500))
+	sprintf(command, "AT+MQTTCONN=0,\"%s\",%s,1", MQTT_IP, MQTT_PORT);
+	while (!ESP8266_Cmd(command, "", "OK", 1500))
 	{
 		system_error_show(5, ypos + fsize * j, "mqtt connection Error!", fsize);
-		printf("AT+MQTTCONN=0,\"101.132.78.200\",1883,1\r\n");
+		printf("%s\r\n", command);
 	};
 
 	LCD_ShowString(5, ypos + fsize * j++, tftlcd_data.width, tftlcd_data.height, fsize, "AT+MQTTSUB...");
-	while (!ESP8266_Cmd("AT+MQTTSUB=0,\"stm32\",1", "OK", "", 1500))
+	sprintf(command, "AT+MQTTSUB=0,\"%s\",1", MQTT_TOPIC);
+	while (!ESP8266_Cmd(command, "OK", "", 1500))
 	{
 		system_error_show(5, ypos + fsize * j, "mqtt subscribe Error!", fsize);
-		printf("AT+MQTTSUB=0,\"stm32\",1\r\n");
+		printf("%s\r\n", command);
 	};
 
 	LCD_ShowString(5, ypos + fsize * j++, tftlcd_data.width, tftlcd_data.height, fsize, "say hello to mqtt server...");
-	while (!ESP8266_Cmd("AT+MQTTPUB=0,\"stm32\",\"{\\\"test\\\":\\\"hello from stm!\\\"}\",0,0", "OK", "", 3000))
+	sprintf(command, "AT+MQTTPUB=0,\"%s\",\"{\\\"type\\\": \\\"browser-status\\\"\\, \\\"status\\\": \\\"OK\\\"\\}\",0,0", MQTT_TOPIC);
+	while (!ESP8266_Cmd(command, "OK", "", 3000))
 	{
 		system_error_show(5, ypos + fsize * j, "mqtt sending Error!", fsize);
-		printf("AT+MQTTPUB=0,\"stm32\",\"{\\\"test\\\":\\\"hello from stm!\\\"\\}\",0,0\r\n");
+		printf("%s\r\n", command);
 	};
 	// ESP8266_SendString(DISABLE, "AT+MQTTPUB=0,\"stm32\",\"{\"test\":\"hello from stm!\"}\",0,0", strlen("AT+MQTTPUB=0,\"stm32\",\"{\"test\":\"hello from stm!\"}\",0,0"), Single_ID_0);
 	RGB_DrawRectangle(0, 0, 4, 4, RGB_COLOR_RED);
@@ -189,7 +204,7 @@ int main()
 
 	Hardware_Check();
 
-	sprintf(response, "AT+MQTTPUB=0,\"stm32\",\"{\\\"type\\\": \\\"browser-status\\\"\\, \\\"status\\\": \\\"OK\\\"\\}\",0,0");
+	sprintf(response, "AT+MQTTPUB=0,\"%s\",\"{\\\"type\\\": \\\"browser-status\\\"\\, \\\"status\\\": \\\"OK\\\"\\}\",0,0", MQTT_TOPIC);
 	// printf("发送状态确认：%s，成功标志：%d\r\n", response, ESP8266_Cmd(response, "OK", "", 5000));
 	LCD_ShowString(0, 40, tftlcd_data.width, tftlcd_data.height, 16, "sending status message...");
 	ESP8266_Cmd(response, "OK", "", 5000);
@@ -220,7 +235,7 @@ int main()
 			LCD_ShowString(45, 0, tftlcd_data.width, tftlcd_data.height, 16, temp_buf);
 			LCD_ShowString(45, 20, tftlcd_data.width, tftlcd_data.height, 16, humi_buf);
 			// 发送温湿度
-			sprintf(response, "AT+MQTTPUB=0,\"stm32\",\"{\\\"type\\\": \\\"browser-DHT11\\\"\\, \\\"temp\\\": \\\"%d\\\"\\, \\\"humi\\\": \\\"%d\\\"\\}\",0,0", temp, humi);
+			sprintf(response, "AT+MQTTPUB=0,\"%s\",\"{\\\"type\\\": \\\"browser-DHT11\\\"\\, \\\"temp\\\": \\\"%d\\\"\\, \\\"humi\\\": \\\"%d\\\"\\}\",0,0", MQTT_TOPIC, temp, humi);
 			// printf("发送温湿度数据：%s，成功标志：%d\r\n", response, ESP8266_Cmd(response, "OK", "", 5000));
 			LCD_ShowString(0, 40, tftlcd_data.width, tftlcd_data.height, 16, "sending temp_humi message...");
 			ESP8266_Cmd(response, 0, 0, 5000);
@@ -245,7 +260,7 @@ int main()
 					printf("type:LED\r\n");
 					LED1 = !cJSON_GetObjectItem(json, "led1")->valueint;
 					LED2 = !cJSON_GetObjectItem(json, "led2")->valueint;
-					sprintf(response, "AT+MQTTPUB=0,\"stm32\",\"{\\\"type\\\": \\\"browser-LED\\\"\\, \\\"led1\\\": %d\\, \\\"led2\\\": %d\\}\",0,0", !LED1, !LED2);
+					sprintf(response, "AT+MQTTPUB=0,\"%s\",\"{\\\"type\\\": \\\"browser-LED\\\"\\, \\\"led1\\\": %d\\, \\\"led2\\\": %d\\}\",0,0", MQTT_TOPIC, !LED1, !LED2);
 					// printf("发送LED数据：%s，成功标志：%d\r\n", response, ESP8266_Cmd(response, "OK", "", 5000));
 					LCD_ShowString(0, 40, tftlcd_data.width, tftlcd_data.height, 16, "sending LED message...");
 					ESP8266_Cmd(response, 0, 0, 5000);
@@ -285,7 +300,7 @@ int main()
 					{
 						TIM_SetCompare2(TIM3, 300); // 值最大可以取499，因为ARR最大值是
 					}
-					sprintf(response, "AT+MQTTPUB=0,\"stm32\",\"{\\\"type\\\": \\\"browser-motor\\\"\\, \\\"motor1\\\": %d\\}\",0,0", motor_status);
+					sprintf(response, "AT+MQTTPUB=0,\"%s\",\"{\\\"type\\\": \\\"browser-motor\\\"\\, \\\"motor1\\\": %d\\}\",0,0", MQTT_TOPIC, motor_status);
 					// printf("发送motor数据：%s，成功标志：%d\r\n", response, ESP8266_Cmd(response, "OK", "", 5000));
 					LCD_ShowString(0, 40, tftlcd_data.width, tftlcd_data.height, 16, "sending motor message...");
 					ESP8266_Cmd(response, 0, 0, 5000);
@@ -325,7 +340,7 @@ int main()
 				if (tp_dev.x[0] > BUTTON_FIRST_x && tp_dev.x[0] <= BUTTON_FIRST_x + BUTTON_WIDTH)
 				{
 					LED1 = !LED1;
-					sprintf(response, "AT+MQTTPUB=0,\"stm32\",\"{\\\"type\\\": \\\"browser-LED\\\"\\, \\\"led1\\\": %d\\, \\\"led2\\\": %d\\}\",0,0", !LED1, !LED2);
+					sprintf(response, "AT+MQTTPUB=0,\"%s\",\"{\\\"type\\\": \\\"browser-LED\\\"\\, \\\"led1\\\": %d\\, \\\"led2\\\": %d\\}\",0,0", MQTT_TOPIC, !LED1, !LED2);
 					// printf("发送LED数据：%s，成功标志：%d\r\n", response, ESP8266_Cmd(response, "OK", "", 5000));
 					LCD_ShowString(0, 40, tftlcd_data.width, tftlcd_data.height, 16, "sending LED message...");
 					ESP8266_Cmd(response, 0, 0, 5000);
@@ -335,7 +350,7 @@ int main()
 				else if (tp_dev.x[0] > BUTTON_FIRST_x + BUTTON_WIDTH && tp_dev.x[0] <= BUTTON_FIRST_x + BUTTON_WIDTH * 2)
 				{
 					LED2 = !LED2;
-					sprintf(response, "AT+MQTTPUB=0,\"stm32\",\"{\\\"type\\\": \\\"browser-LED\\\"\\, \\\"led1\\\": %d\\, \\\"led2\\\": %d\\}\",0,0", !LED1, !LED2);
+					sprintf(response, "AT+MQTTPUB=0,\"%s\",\"{\\\"type\\\": \\\"browser-LED\\\"\\, \\\"led1\\\": %d\\, \\\"led2\\\": %d\\}\",0,0", MQTT_TOPIC, !LED1, !LED2);
 					// printf("发送LED数据：%s，成功标志：%d\r\n", response, ESP8266_Cmd(response, "OK", "", 5000));
 					LCD_ShowString(0, 40, tftlcd_data.width, tftlcd_data.height, 16, "sending LED message...");
 					ESP8266_Cmd(response, 0, 0, 5000);
@@ -375,7 +390,7 @@ int main()
 					{
 						TIM_SetCompare2(TIM3, 300); // 值最大可以取499，因为ARR最大值是
 					}
-					sprintf(response, "AT+MQTTPUB=0,\"stm32\",\"{\\\"type\\\": \\\"browser-motor\\\"\\, \\\"motor1\\\": %d\\}\",0,0", motor_status);
+					sprintf(response, "AT+MQTTPUB=0,\"%s\",\"{\\\"type\\\": \\\"browser-motor\\\"\\, \\\"motor1\\\": %d\\}\",0,0", MQTT_TOPIC, motor_status);
 					// printf("发送motor数据：%s，成功标志：%d\r\n", response, ESP8266_Cmd(response, "OK", "", 5000));
 					LCD_ShowString(0, 40, tftlcd_data.width, tftlcd_data.height, 16, "sending motor message...");
 					ESP8266_Cmd(response, 0, 0, 5000);
