@@ -25,9 +25,11 @@
 #define MQTT_TOPIC "你的主题"
 #endif
 
-#define WIFI_NAME "qing"
-#define WIFI_KEY "18289255"
+//#define WIFI_NAME "qing"
+//#define WIFI_KEY "18289255"
 
+#define WIFI_NAME "zhang"
+#define WIFI_KEY "12345678"
 #define BUTTON_FIRST_x 10
 #define BUTTON_FIRST_y 60
 #define BUTTON_HEIGHT 80
@@ -201,7 +203,10 @@ int main()
 	u8 motor_status = 0;
 	u32 temp_humi_flag = 0;
 	u32 rgb_color[] = {RGB_COLOR_RED, RGB_COLOR_GREEN, RGB_COLOR_BLUE, RGB_COLOR_WHITE, RGB_COLOR_YELLOW, RGB_COLOR_PINK};
-
+	static int rgb_led_on = 0;
+	static int color_index = -1; // 静态变量，用于保存当前颜色索引，初始值为-1表示没有设置颜色
+	static int led_timer = 0;   // 定时器计数器
+	int8_t rgb_num=-1;	//RGB彩灯的数字，为-1时表示没有数字
 	Hardware_Check();
 
 	sprintf(response, "AT+MQTTPUB=0,\"%s\",\"{\\\"type\\\": \\\"browser-status\\\"\\, \\\"status\\\": \\\"OK\\\"\\}\",0,0", MQTT_TOPIC);
@@ -215,11 +220,14 @@ int main()
 	LCD_DrawRectangle(BUTTON_FIRST_x + BUTTON_WIDTH, BUTTON_FIRST_y, BUTTON_FIRST_x + BUTTON_WIDTH * 2, BUTTON_FIRST_y + BUTTON_HEIGHT);
 	LCD_DrawRectangle(BUTTON_FIRST_x, BUTTON_FIRST_y + BUTTON_HEIGHT, BUTTON_FIRST_x + BUTTON_WIDTH, BUTTON_FIRST_y + BUTTON_HEIGHT * 2);
 	LCD_DrawRectangle(BUTTON_FIRST_x + BUTTON_WIDTH, BUTTON_FIRST_y + BUTTON_HEIGHT, BUTTON_FIRST_x + BUTTON_WIDTH * 2, BUTTON_FIRST_y + BUTTON_HEIGHT * 2);
+	LCD_DrawRectangle(BUTTON_FIRST_x , BUTTON_FIRST_y + BUTTON_HEIGHT*2, BUTTON_FIRST_x + BUTTON_WIDTH, BUTTON_FIRST_y + BUTTON_HEIGHT * 3);
+	LCD_DrawRectangle(BUTTON_FIRST_x + BUTTON_WIDTH, BUTTON_FIRST_y + BUTTON_HEIGHT*2, BUTTON_FIRST_x + BUTTON_WIDTH*2, BUTTON_FIRST_y + BUTTON_HEIGHT * 3);
 	LCD_ShowString(BUTTON_FIRST_x + BUTTON_WIDTH / 2 - 32, BUTTON_FIRST_y + BUTTON_HEIGHT / 2 - 8, tftlcd_data.width, tftlcd_data.height, 16, "LED1");
 	LCD_ShowString(BUTTON_FIRST_x + BUTTON_WIDTH * 3 / 2 - 32, BUTTON_FIRST_y + BUTTON_HEIGHT / 2 - 8, tftlcd_data.width, tftlcd_data.height, 16, "LED2");
 	LCD_ShowString(BUTTON_FIRST_x + BUTTON_WIDTH / 2 - 32, BUTTON_FIRST_y + BUTTON_HEIGHT * 3 / 2 - 8, tftlcd_data.width, tftlcd_data.height, 16, "BEEP");
 	LCD_ShowString(BUTTON_FIRST_x + BUTTON_WIDTH * 3 / 2 - 40, BUTTON_FIRST_y + BUTTON_HEIGHT * 3 / 2 - 8, tftlcd_data.width, tftlcd_data.height, 16, "MOTOR");
-
+	LCD_ShowString(BUTTON_FIRST_x + BUTTON_WIDTH /2-50, BUTTON_FIRST_y + BUTTON_HEIGHT * 5 / 2 - 8, tftlcd_data.width, tftlcd_data.height, 16, "Switch Color");
+	LCD_ShowString(BUTTON_FIRST_x + BUTTON_WIDTH *3/2-40, BUTTON_FIRST_y + BUTTON_HEIGHT * 5 / 2 - 8, tftlcd_data.width, tftlcd_data.height, 16, "Color Off");
 	do
 	{
 		if (!(temp_humi_flag++ % 400000))
@@ -316,6 +324,9 @@ int main()
 					RGB_DrawDotColor(2, 2, 1, RGB_COLOR_GREEN);
 					delay_ms(100);
 					RGB_ShowCharNum(cJSON_GetObjectItem(json, "num")->valueint % 16, rgb_color[cJSON_GetObjectItem(json, "color")->valueint % 6]);
+				
+					rgb_num=cJSON_GetObjectItem(json, "num")->valueint;
+					color_index=cJSON_GetObjectItem(json, "color")->valueint;
 				}
 				else
 				{
@@ -396,7 +407,59 @@ int main()
 					ESP8266_Cmd(response, 0, 0, 5000);
 					LCD_Fill(0, 40, tftlcd_data.width, 56, BLACK);
 				}
+
+			}
+			else if (tp_dev.y[0] > BUTTON_FIRST_y + BUTTON_HEIGHT*2 && tp_dev.y[0] <= BUTTON_FIRST_y + BUTTON_HEIGHT * 3)
+			{
+				led_timer = 0;
+				if(tp_dev.x[0] > BUTTON_FIRST_x && tp_dev.x[0] <= BUTTON_FIRST_x + BUTTON_WIDTH)
+				{
+					 rgb_led_on=1;
+					
+					if(color_index == -1) 
+					{
+							color_index = 0; // 设置为数组的第一个颜色
+					} 
+					else 
+					{
+							// 更新颜色索引，循环回到数组开始如果到达末尾
+							color_index = (color_index + 1) % (sizeof(rgb_color) / sizeof(rgb_color[0]));
+					}
+					if(rgb_num == -1)
+					{
+								RGB_DrawRectangle(0,0,4,4,rgb_color[color_index]); // 使用颜色数组中的颜色
+								RGB_DrawRectangle(1, 1, 3, 3, RGB_COLOR_BLUE);
+								RGB_DrawDotColor(2, 2, 1, RGB_COLOR_GREEN);
+					}
+					else
+					{
+						RGB_ShowCharNum(rgb_num,rgb_color[color_index]);
+					}
+		
+				}
+				else if(tp_dev.x[0] > BUTTON_FIRST_x+BUTTON_WIDTH && tp_dev.x[0] <= BUTTON_FIRST_x + BUTTON_WIDTH*2)
+				{
+					rgb_led_on=0;
+					RGB_LED_Clear();
+					color_index = -1;
+					rgb_num=-1;
+				}
+			
 			}
 		}
+		 if (rgb_led_on) {
+        // 增加计时器
+        led_timer++;
+
+        // 检查是否达到预定时间（例如 400000 作为示例）
+        if (led_timer > 400000) {
+            rgb_led_on = 0; // 关闭灯
+            led_timer = 0;  // 重置计时器
+					
+            RGB_LED_Clear();
+						color_index = -1;
+						rgb_num=-1;
+        }
+    }
 	} while (1);
 }
