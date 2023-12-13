@@ -210,7 +210,7 @@ int main()
 	/* int color_index1 = -1;
 	int color_index2 = -1; */
 	int rgb_stop_timer = 0;		// 定时器计数器
-	char rgb_current_char = -1; // RGB彩灯的数字，为-1时表示没有数字
+	int rgb_current_char = -1; // RGB彩灯的数字，为-1时表示没有数字
 	Hardware_Check();
 
 	sprintf(response, "AT+MQTTPUB=0,\"%s\",\"{\\\"type\\\": \\\"browser-status\\\"\\, \\\"status\\\": \\\"OK\\\"\\}\",0,0", MQTT_TOPIC);
@@ -437,8 +437,8 @@ int main()
 					if (rgb_current_char == -1)
 					{
 						RGB_DrawRectangle(0, 0, 4, 4, rgb_color[++rgb_current_main_color % rgb_color_count]); // 使用颜色数组中的颜色
-						RGB_DrawRectangle(1, 1, 3, 3, rgb_color[rgb_current_main_color + 1 % rgb_color_count]);
-						RGB_DrawDotColor(2, 2, 1, rgb_color[rgb_current_main_color + 2 % rgb_color_count]);
+						RGB_DrawRectangle(1, 1, 3, 3, rgb_color[(rgb_current_main_color + 1) % rgb_color_count]);
+						RGB_DrawDotColor(2, 2, 1, rgb_color[(rgb_current_main_color + 2) % rgb_color_count]);
 					}
 					// rbg正在显示字符的话只改变颜色
 					else
