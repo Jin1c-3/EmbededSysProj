@@ -204,7 +204,9 @@ int main()
 	u32 temp_humi_flag = 0;
 	u32 rgb_color[] = {RGB_COLOR_RED, RGB_COLOR_GREEN, RGB_COLOR_BLUE, RGB_COLOR_WHITE, RGB_COLOR_YELLOW, RGB_COLOR_PINK};
 	static int rgb_led_on = 0;
-	static int color_index = -1; // 静态变量，用于保存当前颜色索引，初始值为-1表示没有设置颜色
+	static int color_index0 = -1; // 静态变量，用于保存当前颜色索引，初始值为-1表示没有设置颜色
+	static int color_index1 = -1;
+	static int color_index2 = -1;
 	static int led_timer = 0;   // 定时器计数器
 	int8_t rgb_num=-1;	//RGB彩灯的数字，为-1时表示没有数字
 	Hardware_Check();
@@ -326,7 +328,7 @@ int main()
 					RGB_ShowCharNum(cJSON_GetObjectItem(json, "num")->valueint % 16, rgb_color[cJSON_GetObjectItem(json, "color")->valueint % 6]);
 				
 					rgb_num=cJSON_GetObjectItem(json, "num")->valueint;
-					color_index=cJSON_GetObjectItem(json, "color")->valueint;
+					color_index0=cJSON_GetObjectItem(json, "color")->valueint;
 				}
 				else
 				{
@@ -416,24 +418,28 @@ int main()
 				{
 					 rgb_led_on=1;
 					
-					if(color_index == -1) 
+					if(color_index0 == -1) 
 					{
-							color_index = 0; // 设置为数组的第一个颜色
+							color_index0 = 0; // 设置为数组的第一个颜色
+						color_index1 = 1;
+						color_index2 = 2;
 					} 
 					else 
 					{
 							// 更新颜色索引，循环回到数组开始如果到达末尾
-							color_index = (color_index + 1) % (sizeof(rgb_color) / sizeof(rgb_color[0]));
+							color_index0 = (color_index0 + 1) % (sizeof(rgb_color) / sizeof(rgb_color[0]));
+						color_index1 = (color_index1 + 1) % (sizeof(rgb_color) / sizeof(rgb_color[0]));
+						color_index2 = (color_index2 + 1) % (sizeof(rgb_color) / sizeof(rgb_color[0]));
 					}
 					if(rgb_num == -1)
 					{
-								RGB_DrawRectangle(0,0,4,4,rgb_color[color_index]); // 使用颜色数组中的颜色
-								RGB_DrawRectangle(1, 1, 3, 3, RGB_COLOR_BLUE);
-								RGB_DrawDotColor(2, 2, 1, RGB_COLOR_GREEN);
+								RGB_DrawRectangle(0,0,4,4,rgb_color[color_index0]); // 使用颜色数组中的颜色
+								RGB_DrawRectangle(1, 1, 3, 3, rgb_color[color_index1]);
+								RGB_DrawDotColor(2, 2, 1, rgb_color[color_index2]);
 					}
 					else
 					{
-						RGB_ShowCharNum(rgb_num,rgb_color[color_index]);
+						RGB_ShowCharNum(rgb_num,rgb_color[color_index0]);
 					}
 		
 				}
@@ -441,7 +447,9 @@ int main()
 				{
 					rgb_led_on=0;
 					RGB_LED_Clear();
-					color_index = -1;
+					color_index0 = -1;
+					color_index1 = -1;
+					color_index2 =-1;
 					rgb_num=-1;
 				}
 			
@@ -457,7 +465,9 @@ int main()
             led_timer = 0;  // 重置计时器
 					
             RGB_LED_Clear();
-						color_index = -1;
+						color_index0 = -1;
+						color_index1 = -1;
+						color_index2 =-1;
 						rgb_num=-1;
         }
     }
