@@ -14,6 +14,7 @@
 #include "cJSON.h"
 #include "ws2812.h"
 #include "touch.h"
+#include "lsens.h"
 #include "my_mqtt.h"
 
 #ifndef _mymqtt_H
@@ -25,14 +26,15 @@
 #define MQTT_TOPIC "你的主题"
 #endif
 
-// #define WIFI_NAME "qing"
-// #define WIFI_KEY "18289255"
+#define WIFI_COUNT 2
+// Define WiFi names as character arrays
+char *WIFI_NAME_LIST[WIFI_COUNT] = {"qing", "zhang"};
+// Define WiFi keys as character arrays
+char *WIFI_KEY_LIST[WIFI_COUNT] = {"18289255", "12345678"};
 
-#define WIFI_NAME "zhang"
-#define WIFI_KEY "12345678"
-
-#define BUTTON_FIRST_x 10
-#define BUTTON_FIRST_y 60
+#define MESSAGE_y 60
+#define BUTTON_FIRST_x 0
+#define BUTTON_FIRST_y 80
 #define BUTTON_HEIGHT 80
 #define BUTTON_WIDTH 120
 
@@ -57,6 +59,7 @@ void system_error_show(u16 x, u16 y, u8 *err, u8 fsize)
 
 void Hardware_Check(void)
 {
+	u8 wifi_switch = 0;
 	u16 okoffset = 162;
 	u8 fsize;
 	u16 ypos = 0;
@@ -71,8 +74,8 @@ void Hardware_Check(void)
 	BEEP_Init();									// 蜂鸣器初始化
 	KEY_Init();										// 按键初始化
 	TIM3_CH2_PWM_Init(500, 72 - 1);					// 频率是2Kh
-
-	TP_Init(); // 触摸屏初始化
+	Lsens_Init();									// 初始化光敏传感器
+	TP_Init();										// 触摸屏初始化
 
 	TIM_SetCompare2(TIM3, 0);
 	delay_ms(50);
@@ -125,19 +128,20 @@ void Hardware_Check(void)
 	ESP8266_AT_Test();
 
 	LCD_ShowString(5, ypos + fsize * j++, tftlcd_data.width, tftlcd_data.height, fsize, "AT+RST...");
-	ESP8266_Cmd("AT+RST", "OK", "ready", 1500);
+	ESP8266_Cmd("AT+RST", 0, 0, 1500);
 
 	LCD_ShowString(5, ypos + fsize * j++, tftlcd_data.width, tftlcd_data.height, fsize, "ESP8266_Net_Mode_Choose...");
 	ESP8266_Net_Mode_Choose(STA);
 
 	LCD_ShowString(5, ypos + fsize * j++, tftlcd_data.width, tftlcd_data.height, fsize, "AT+CWDHCP=1,1...");
-	ESP8266_Cmd("AT+CWDHCP=1,1", "OK", "", 1500);
+	ESP8266_Cmd("AT+CWDHCP=1,1", 0, 0, 1500);
 
 	LCD_ShowString(5, ypos + fsize * j++, tftlcd_data.width, tftlcd_data.height, fsize, "ESP8266_JoinAP...");
-	while (!ESP8266_JoinAP(WIFI_NAME, WIFI_KEY))
+	while (!ESP8266_JoinAP(WIFI_NAME_LIST[wifi_switch % WIFI_COUNT], WIFI_KEY_LIST[wifi_switch % WIFI_COUNT]))
 	{
 		system_error_show(5, ypos + fsize * j, "wifi connection Error!", fsize);
-		printf("正在连接热点...[WIFI_NAME - %s] [WIFI_KEY - %s]\r\n", WIFI_NAME, WIFI_KEY);
+		printf("正在连接热点...[WIFI_NAME - %s] [WIFI_KEY - %s]\r\n", WIFI_NAME_LIST[wifi_switch % WIFI_COUNT], WIFI_KEY_LIST[wifi_switch % WIFI_COUNT]);
+		wifi_switch++;
 	};
 
 	LCD_ShowString(5, ypos + fsize * j++, tftlcd_data.width, tftlcd_data.height, fsize, "AT+MQTTUSERCFG...");
@@ -164,14 +168,13 @@ void Hardware_Check(void)
 		printf("%s\r\n", command);
 	};
 
-	LCD_ShowString(5, ypos + fsize * j++, tftlcd_data.width, tftlcd_data.height, fsize, "say hello to mqtt server...");
+	/* LCD_ShowString(5, ypos + fsize * j++, tftlcd_data.width, tftlcd_data.height, fsize, "say hello to mqtt server...");
 	sprintf(command, "AT+MQTTPUB=0,\"%s\",\"{\\\"type\\\": \\\"browser-status\\\"\\, \\\"status\\\": \\\"OK\\\"\\}\",0,0", MQTT_TOPIC);
 	while (!ESP8266_Cmd(command, "OK", "", 3000))
 	{
 		system_error_show(5, ypos + fsize * j, "mqtt sending Error!", fsize);
 		printf("%s\r\n", command);
-	};
-	// ESP8266_SendString(DISABLE, "AT+MQTTPUB=0,\"stm32\",\"{\"test\":\"hello from stm!\"}\",0,0", strlen("AT+MQTTPUB=0,\"stm32\",\"{\"test\":\"hello from stm!\"}\",0,0"), Single_ID_0);
+	}; */
 	RGB_DrawRectangle(0, 0, 4, 4, RGB_COLOR_RED);
 	delay_ms(100);
 	RGB_DrawRectangle(1, 1, 3, 3, RGB_COLOR_BLUE);
@@ -195,31 +198,30 @@ void Hardware_Check(void)
 
 int main()
 {
-	u8 temp;
-	u8 humi;
-	u8 temp_buf[3], humi_buf[3];
+	u8 temp, humi, lsens;
+	u8 temp_buf[3], humi_buf[3], lsens_buf[5];
 	char response[120] = {0};
 	cJSON *json;
 	char *request;
 	u8 motor_status = 0;
 	int temp_humi_stop_timer = 0;
+	int lsens_stop_timer = 0;
 	u32 rgb_color[] = {RGB_COLOR_RED, RGB_COLOR_GREEN, RGB_COLOR_BLUE, RGB_COLOR_WHITE, RGB_COLOR_YELLOW, RGB_COLOR_PINK};
 	u8 rgb_color_count = sizeof(rgb_color) / sizeof(rgb_color[0]);
 	char rgb_on = 0;
-	char rgb_current_main_color = -1; // 静态变量，用于保存当前颜色索引，初始值为-1表示没有设置颜色
-	/* int color_index1 = -1;
-	int color_index2 = -1; */
-	int rgb_stop_timer = 0;		// 定时器计数器
-	int rgb_current_char = -1; // RGB彩灯的数字，为-1时表示没有数字
+	char rgb_current_main_color = -1; // 用于保存当前颜色索引，初始值为-1表示没有设置颜色
+	int rgb_stop_timer = 0;			  // 定时器计数器
+	int rgb_current_char = -1;		  // RGB彩灯的数字，为-1时表示没有数字
 	Hardware_Check();
 
 	sprintf(response, "AT+MQTTPUB=0,\"%s\",\"{\\\"type\\\": \\\"browser-status\\\"\\, \\\"status\\\": \\\"OK\\\"\\}\",0,0", MQTT_TOPIC);
 	// printf("发送状态确认：%s，成功标志：%d\r\n", response, ESP8266_Cmd(response, "OK", "", 5000));
-	LCD_ShowString(0, 40, tftlcd_data.width, tftlcd_data.height, 16, "sending status message...");
-	ESP8266_Cmd(response, "OK", "", 5000);
-	LCD_Fill(0, 40, tftlcd_data.width, 56, BLACK);
+	LCD_ShowString(0, MESSAGE_y, tftlcd_data.width, tftlcd_data.height, 16, "sending status message...");
+	ESP8266_Cmd(response, 0, 0, 5000);
+	LCD_Fill(0, MESSAGE_y, tftlcd_data.width, MESSAGE_y + 16, BLACK);
 	LCD_ShowString(0, 0, tftlcd_data.width, tftlcd_data.height, 16, "Temp:   degree celsius");
 	LCD_ShowString(0, 20, tftlcd_data.width, tftlcd_data.height, 16, "Humi:   %");
+	LCD_ShowString(0, 40, tftlcd_data.width, tftlcd_data.height, 16, "Lsens:   ");
 	LCD_DrawRectangle(BUTTON_FIRST_x, BUTTON_FIRST_y, BUTTON_FIRST_x + BUTTON_WIDTH, BUTTON_FIRST_y + BUTTON_HEIGHT);
 	LCD_DrawRectangle(BUTTON_FIRST_x + BUTTON_WIDTH, BUTTON_FIRST_y, BUTTON_FIRST_x + BUTTON_WIDTH * 2, BUTTON_FIRST_y + BUTTON_HEIGHT);
 	LCD_DrawRectangle(BUTTON_FIRST_x, BUTTON_FIRST_y + BUTTON_HEIGHT, BUTTON_FIRST_x + BUTTON_WIDTH, BUTTON_FIRST_y + BUTTON_HEIGHT * 2);
@@ -249,10 +251,27 @@ int main()
 			// 发送温湿度
 			sprintf(response, "AT+MQTTPUB=0,\"%s\",\"{\\\"type\\\": \\\"browser-DHT11\\\"\\, \\\"temp\\\": \\\"%d\\\"\\, \\\"humi\\\": \\\"%d\\\"\\}\",0,0", MQTT_TOPIC, temp, humi);
 			// printf("发送温湿度数据：%s，成功标志：%d\r\n", response, ESP8266_Cmd(response, "OK", "", 5000));
-			LCD_ShowString(0, 40, tftlcd_data.width, tftlcd_data.height, 16, "sending temp_humi message...");
+			LCD_ShowString(0, MESSAGE_y, tftlcd_data.width, tftlcd_data.height, 16, "sending temp_humi message...");
 			ESP8266_Cmd(response, 0, 0, 5000);
-			LCD_Fill(0, 40, tftlcd_data.width, 56, BLACK);
+			LCD_Fill(0, MESSAGE_y, tftlcd_data.width, MESSAGE_y + 16, BLACK);
 			printf("发送一次温湿度信息\r\n");
+		}
+
+		if (!(lsens_stop_timer++ % 100000))
+		{
+			// 光敏模块
+			lsens = Lsens_Get_Val();
+			lsens_buf[0] = lsens / 100 + 0x30;
+			lsens_buf[1] = lsens % 100 / 10 + 0x30;
+			lsens_buf[2] = lsens % 100 % 10 + 0x30;
+			lsens_buf[3] = '\0';
+			LCD_ShowString(51, 40, tftlcd_data.width, tftlcd_data.height, 16, humi_buf);
+			sprintf(response, "AT+MQTTPUB=0,\"%s\",\"{\\\"type\\\": \\\"browser-lsens\\\"\\, \\\"lsens\\\": \\\"%d\\\"\\}\",0,0", MQTT_TOPIC, lsens);
+			// printf("发送温湿度数据：%s，成功标志：%d\r\n", response, ESP8266_Cmd(response, "OK", "", 5000));
+			LCD_ShowString(0, MESSAGE_y, tftlcd_data.width, tftlcd_data.height, 16, "sending lsens message...");
+			ESP8266_Cmd(response, 0, 0, 5000);
+			LCD_Fill(0, MESSAGE_y, tftlcd_data.width, MESSAGE_y + 16, BLACK);
+			printf("发送一次光敏信息 %s\r\n", lsens_buf);
 		}
 
 		// wifi模块
@@ -274,9 +293,9 @@ int main()
 					LED2 = !cJSON_GetObjectItem(json, "led2")->valueint;
 					sprintf(response, "AT+MQTTPUB=0,\"%s\",\"{\\\"type\\\": \\\"browser-LED\\\"\\, \\\"led1\\\": %d\\, \\\"led2\\\": %d\\}\",0,0", MQTT_TOPIC, !LED1, !LED2);
 					// printf("发送LED数据：%s，成功标志：%d\r\n", response, ESP8266_Cmd(response, "OK", "", 5000));
-					LCD_ShowString(0, 40, tftlcd_data.width, tftlcd_data.height, 16, "sending LED message...");
+					LCD_ShowString(0, MESSAGE_y, tftlcd_data.width, tftlcd_data.height, 16, "sending LED message...");
 					ESP8266_Cmd(response, 0, 0, 5000);
-					LCD_Fill(0, 40, tftlcd_data.width, 56, BLACK);
+					LCD_Fill(0, MESSAGE_y, tftlcd_data.width, MESSAGE_y + 16, BLACK);
 				}
 				else if (!strcmp(cJSON_GetObjectItem(json, "type")->valuestring, "buzzer"))
 				{
@@ -314,9 +333,9 @@ int main()
 					}
 					sprintf(response, "AT+MQTTPUB=0,\"%s\",\"{\\\"type\\\": \\\"browser-motor\\\"\\, \\\"motor1\\\": %d\\}\",0,0", MQTT_TOPIC, motor_status);
 					// printf("发送motor数据：%s，成功标志：%d\r\n", response, ESP8266_Cmd(response, "OK", "", 5000));
-					LCD_ShowString(0, 40, tftlcd_data.width, tftlcd_data.height, 16, "sending motor message...");
+					LCD_ShowString(0, MESSAGE_y, tftlcd_data.width, tftlcd_data.height, 16, "sending motor message...");
 					ESP8266_Cmd(response, 0, 0, 5000);
-					LCD_Fill(0, 40, tftlcd_data.width, 56, BLACK);
+					LCD_Fill(0, MESSAGE_y, tftlcd_data.width, MESSAGE_y + 16, BLACK);
 				}
 				else if (!strcmp(cJSON_GetObjectItem(json, "type")->valuestring, "RGB"))
 				{
@@ -357,9 +376,9 @@ int main()
 					LED1 = !LED1;
 					sprintf(response, "AT+MQTTPUB=0,\"%s\",\"{\\\"type\\\": \\\"browser-LED\\\"\\, \\\"led1\\\": %d\\, \\\"led2\\\": %d\\}\",0,0", MQTT_TOPIC, !LED1, !LED2);
 					// printf("发送LED数据：%s，成功标志：%d\r\n", response, ESP8266_Cmd(response, "OK", "", 5000));
-					LCD_ShowString(0, 40, tftlcd_data.width, tftlcd_data.height, 16, "sending LED message...");
+					LCD_ShowString(0, MESSAGE_y, tftlcd_data.width, tftlcd_data.height, 16, "sending LED message...");
 					ESP8266_Cmd(response, 0, 0, 5000);
-					LCD_Fill(0, 40, tftlcd_data.width, 56, BLACK);
+					LCD_Fill(0, MESSAGE_y, tftlcd_data.width, MESSAGE_y + 16, BLACK);
 				}
 				// LED2反转变化
 				else if (tp_dev.x[0] > BUTTON_FIRST_x + BUTTON_WIDTH && tp_dev.x[0] <= BUTTON_FIRST_x + BUTTON_WIDTH * 2)
@@ -367,9 +386,9 @@ int main()
 					LED2 = !LED2;
 					sprintf(response, "AT+MQTTPUB=0,\"%s\",\"{\\\"type\\\": \\\"browser-LED\\\"\\, \\\"led1\\\": %d\\, \\\"led2\\\": %d\\}\",0,0", MQTT_TOPIC, !LED1, !LED2);
 					// printf("发送LED数据：%s，成功标志：%d\r\n", response, ESP8266_Cmd(response, "OK", "", 5000));
-					LCD_ShowString(0, 40, tftlcd_data.width, tftlcd_data.height, 16, "sending LED message...");
+					LCD_ShowString(0, MESSAGE_y, tftlcd_data.width, tftlcd_data.height, 16, "sending LED message...");
 					ESP8266_Cmd(response, 0, 0, 5000);
-					LCD_Fill(0, 40, tftlcd_data.width, 56, BLACK);
+					LCD_Fill(0, MESSAGE_y, tftlcd_data.width, MESSAGE_y + 16, BLACK);
 				}
 			}
 			else if (tp_dev.y[0] > BUTTON_FIRST_y + BUTTON_HEIGHT && tp_dev.y[0] <= BUTTON_FIRST_y + BUTTON_HEIGHT * 2)
@@ -407,9 +426,9 @@ int main()
 					}
 					sprintf(response, "AT+MQTTPUB=0,\"%s\",\"{\\\"type\\\": \\\"browser-motor\\\"\\, \\\"motor1\\\": %d\\}\",0,0", MQTT_TOPIC, motor_status);
 					// printf("发送motor数据：%s，成功标志：%d\r\n", response, ESP8266_Cmd(response, "OK", "", 5000));
-					LCD_ShowString(0, 40, tftlcd_data.width, tftlcd_data.height, 16, "sending motor message...");
+					LCD_ShowString(0, MESSAGE_y, tftlcd_data.width, tftlcd_data.height, 16, "sending motor message...");
 					ESP8266_Cmd(response, 0, 0, 5000);
-					LCD_Fill(0, 40, tftlcd_data.width, 56, BLACK);
+					LCD_Fill(0, MESSAGE_y, tftlcd_data.width, MESSAGE_y + 16, BLACK);
 				}
 			}
 			else if (tp_dev.y[0] > BUTTON_FIRST_y + BUTTON_HEIGHT * 2 && tp_dev.y[0] <= BUTTON_FIRST_y + BUTTON_HEIGHT * 3)
@@ -418,21 +437,6 @@ int main()
 				if (tp_dev.x[0] > BUTTON_FIRST_x && tp_dev.x[0] <= BUTTON_FIRST_x + BUTTON_WIDTH)
 				{
 					rgb_on = 1;
-
-					/* // rgb当前没有开启
-					if (rgb_current_main_color == -1)
-					{
-						rgb_current_main_color = 0; // 设置为数组的第一个颜色
-						color_index1 = 1;
-						color_index2 = 2;
-					}
-					else
-					{
-						// 更新颜色索引，循环回到数组开始如果到达末尾
-						rgb_current_main_color = (rgb_current_main_color + 1) % (sizeof(rgb_color) / sizeof(rgb_color[0]));
-						color_index1 = (color_index1 + 1) % (sizeof(rgb_color) / sizeof(rgb_color[0]));
-						color_index2 = (color_index2 + 1) % (sizeof(rgb_color) / sizeof(rgb_color[0]));
-					} */
 					// rgb当前没有显示字符
 					if (rgb_current_char == -1)
 					{
@@ -451,30 +455,17 @@ int main()
 					rgb_on = 0;
 					RGB_LED_Clear();
 					rgb_current_main_color = -1;
-					/* color_index1 = -1;
-					color_index2 = -1; */
 					rgb_current_char = -1;
 				}
 			}
 		}
-		// rgb_on==0时不会自增
 		if (rgb_on && ++rgb_stop_timer > 400000)
 		{
-			/* // 增加计时器
-			rgb_stop_timer++;
-
-			// 检查是否达到预定时间（例如 400000 作为示例）
-			if (rgb_stop_timer > 400000)
-			{ */
 			rgb_on = 0;			// 关闭灯
 			rgb_stop_timer = 0; // 重置计时器
-
 			RGB_LED_Clear();
 			rgb_current_main_color = -1;
-			/* color_index1 = -1;
-			color_index2 = -1; */
 			rgb_current_char = -1;
-			// }
 		}
 	} while (1);
 }
