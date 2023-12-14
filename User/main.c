@@ -18,6 +18,7 @@
 #include "my_mqtt.h"
 #include "exti.h"
 #include "iwdg.h"
+#include "hwjs.h"
 
 #ifndef _mymqtt_H
 #define MQTT_CLIENT_ID "你的clientid"
@@ -77,6 +78,7 @@ void Hardware_Check(void)
 	Lsens_Init();									// 初始化光敏传感器
 	TP_Init();										// 触摸屏初始化
 	My_EXTI_Init();									// 外部中断初始化
+	Hwjs_Init();
 
 	TIM_SetCompare2(TIM3, 0);
 	delay_ms(50);
@@ -217,6 +219,8 @@ int main()
 	char rgb_current_main_color = -1; // 用于保存当前颜色索引，初始值为-1表示没有设置颜色
 	int rgb_stop_timer = 0;			  // 定时器计数器
 	int rgb_current_char = -1;		  // RGB彩灯的数字，为-1时表示没有数字
+	char hw_buf[9];
+
 	Hardware_Check();
 
 	sprintf(response, "AT+MQTTPUB=0,\"%s\",\"{\\\"type\\\": \\\"browser-status\\\"\\, \\\"status\\\": \\\"OK\\\"\\}\",0,0", MQTT_TOPIC);
@@ -246,6 +250,52 @@ int main()
 	do
 	{
 		IWDG_FeedDog(); // 喂狗
+		// 红外感应模块
+		if (hw_jsbz == 1) // 如果红外接收到
+		{
+			hw_jsbz = 0;							// 清零
+			sprintf(hw_buf, "%0.8X", hw_jsm);
+
+			// 红外——上一首按键
+			if (!strcmp(hw_buf, "00FF02FD"))
+			{
+				rgb_on = 1;
+				if (--rgb_current_main_color < 0)
+				{
+					rgb_current_main_color += rgb_color_count;
+				}
+				// rgb当前没有显示字符
+				if (rgb_current_char == -1)
+				{
+					RGB_DrawRectangle(0, 0, 4, 4, rgb_color[rgb_current_main_color]); // 使用颜色数组中的颜色
+					RGB_DrawRectangle(1, 1, 3, 3, rgb_color[(rgb_current_main_color + 1) % rgb_color_count]);
+					RGB_DrawDotColor(2, 2, 1, rgb_color[(rgb_current_main_color + 2) % rgb_color_count]);
+				}
+				// rbg正在显示字符的话只改变颜色
+				else
+				{
+					RGB_ShowCharNum(rgb_current_char, rgb_color[rgb_current_main_color]);
+				}
+			}
+			else if (!strcmp(hw_buf, "00FFC23D"))
+			{
+				rgb_on = 1;
+				// rgb当前没有显示字符
+				if (rgb_current_char == -1)
+				{
+					RGB_DrawRectangle(0, 0, 4, 4, rgb_color[++rgb_current_main_color % rgb_color_count]); // 使用颜色数组中的颜色
+					RGB_DrawRectangle(1, 1, 3, 3, rgb_color[(rgb_current_main_color + 1) % rgb_color_count]);
+					RGB_DrawDotColor(2, 2, 1, rgb_color[(rgb_current_main_color + 2) % rgb_color_count]);
+				}
+				// rbg正在显示字符的话只改变颜色
+				else
+				{
+					RGB_ShowCharNum(rgb_current_char, rgb_color[++rgb_current_main_color % rgb_color_count]);
+				}
+			}
+			hw_jsm = 0; // 接收码清零
+		}
+
 		if (!(temp_humi_stop_timer++ % 400000))
 		{
 			// 温湿度模块
