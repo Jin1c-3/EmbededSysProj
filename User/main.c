@@ -132,7 +132,11 @@ void Hardware_Check(void)
 	ESP8266_Cmd("AT+RST", 0, 0, 1500);
 
 	LCD_ShowString(5, ypos + fsize * j++, tftlcd_data.width, tftlcd_data.height, fsize, "ESP8266_Net_Mode_Choose...");
-	ESP8266_Net_Mode_Choose(STA);
+	while (!ESP8266_Net_Mode_Choose(STA))
+	{
+		system_error_show(5, ypos + fsize * j, "ESP8266_Net_Mode_Choose Error!", fsize);
+		printf("%s\r\n", command);
+	};
 
 	LCD_ShowString(5, ypos + fsize * j++, tftlcd_data.width, tftlcd_data.height, fsize, "AT+CWDHCP=1,1...");
 	ESP8266_Cmd("AT+CWDHCP=1,1", 0, 0, 1500);

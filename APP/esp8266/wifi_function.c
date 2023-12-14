@@ -57,6 +57,7 @@ void ESP8266_AT_Test(void)
 
 	while (!ESP8266_Cmd("AT", "OK", 0, 2000))
 	{
+		
 		ESP8266_Rst();
 	}
 }
