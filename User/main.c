@@ -16,6 +16,8 @@
 #include "touch.h"
 #include "lsens.h"
 #include "my_mqtt.h"
+#include "exti.h"
+#include "iwdg.h"
 
 #ifndef _mymqtt_H
 #define MQTT_CLIENT_ID "你的clientid"
@@ -26,11 +28,9 @@
 #define MQTT_TOPIC "你的主题"
 #endif
 
-#define WIFI_COUNT 2
-// Define WiFi names as character arrays
-char *WIFI_NAME_LIST[WIFI_COUNT] = {"qing", "zhang"};
-// Define WiFi keys as character arrays
-char *WIFI_KEY_LIST[WIFI_COUNT] = {"18289255", "12345678"};
+char *WIFI_NAME_LIST[] = {"qing", "zhang"};
+char *WIFI_KEY_LIST[] = {"18289255", "12345678"};
+u8 WIFI_COUNT = sizeof(WIFI_NAME_LIST) / sizeof(WIFI_NAME_LIST[0]);
 
 #define MESSAGE_y 60
 #define BUTTON_FIRST_x 0
@@ -76,6 +76,7 @@ void Hardware_Check(void)
 	TIM3_CH2_PWM_Init(500, 72 - 1);					// 频率是2Kh
 	Lsens_Init();									// 初始化光敏传感器
 	TP_Init();										// 触摸屏初始化
+	My_EXTI_Init();									// 外部中断初始化
 
 	TIM_SetCompare2(TIM3, 0);
 	delay_ms(50);
@@ -198,8 +199,8 @@ void Hardware_Check(void)
 
 int main()
 {
-	u8 temp, humi, lsens;
-	u8 temp_buf[3], humi_buf[3], lsens_buf[5];
+	u8 temp, humi, lsens = 0;
+	u8 temp_buf[3], humi_buf[3], lsens_buf[3];
 	char response[120] = {0};
 	cJSON *json;
 	char *request;
@@ -219,9 +220,11 @@ int main()
 	LCD_ShowString(0, MESSAGE_y, tftlcd_data.width, tftlcd_data.height, 16, "sending status message...");
 	ESP8266_Cmd(response, 0, 0, 5000);
 	LCD_Fill(0, MESSAGE_y, tftlcd_data.width, MESSAGE_y + 16, BLACK);
+
 	LCD_ShowString(0, 0, tftlcd_data.width, tftlcd_data.height, 16, "Temp:   degree celsius");
 	LCD_ShowString(0, 20, tftlcd_data.width, tftlcd_data.height, 16, "Humi:   %");
 	LCD_ShowString(0, 40, tftlcd_data.width, tftlcd_data.height, 16, "Lsens:   ");
+
 	LCD_DrawRectangle(BUTTON_FIRST_x, BUTTON_FIRST_y, BUTTON_FIRST_x + BUTTON_WIDTH, BUTTON_FIRST_y + BUTTON_HEIGHT);
 	LCD_DrawRectangle(BUTTON_FIRST_x + BUTTON_WIDTH, BUTTON_FIRST_y, BUTTON_FIRST_x + BUTTON_WIDTH * 2, BUTTON_FIRST_y + BUTTON_HEIGHT);
 	LCD_DrawRectangle(BUTTON_FIRST_x, BUTTON_FIRST_y + BUTTON_HEIGHT, BUTTON_FIRST_x + BUTTON_WIDTH, BUTTON_FIRST_y + BUTTON_HEIGHT * 2);
@@ -234,8 +237,11 @@ int main()
 	LCD_ShowString(BUTTON_FIRST_x + BUTTON_WIDTH * 3 / 2 - 40, BUTTON_FIRST_y + BUTTON_HEIGHT * 3 / 2 - 8, tftlcd_data.width, tftlcd_data.height, 16, "MOTOR");
 	LCD_ShowString(BUTTON_FIRST_x + BUTTON_WIDTH / 2 - 50, BUTTON_FIRST_y + BUTTON_HEIGHT * 5 / 2 - 8, tftlcd_data.width, tftlcd_data.height, 16, "Switch Color");
 	LCD_ShowString(BUTTON_FIRST_x + BUTTON_WIDTH * 3 / 2 - 40, BUTTON_FIRST_y + BUTTON_HEIGHT * 5 / 2 - 8, tftlcd_data.width, tftlcd_data.height, 16, "Color Off");
+
+	IWDG_Init(4, 800); // 只要在1280ms内进行喂狗就不会复位系统
 	do
 	{
+		IWDG_FeedDog(); // 喂狗
 		if (!(temp_humi_stop_timer++ % 400000))
 		{
 			// 温湿度模块
@@ -257,21 +263,20 @@ int main()
 			printf("发送一次温湿度信息\r\n");
 		}
 
-		if (!(lsens_stop_timer++ % 100000))
+		if (!(lsens_stop_timer++ % 140000))
 		{
 			// 光敏模块
 			lsens = Lsens_Get_Val();
-			lsens_buf[0] = lsens / 100 + 0x30;
-			lsens_buf[1] = lsens % 100 / 10 + 0x30;
-			lsens_buf[2] = lsens % 100 % 10 + 0x30;
-			lsens_buf[3] = '\0';
-			LCD_ShowString(51, 40, tftlcd_data.width, tftlcd_data.height, 16, humi_buf);
+			lsens_buf[0] = lsens / 10 + 0x30;
+			lsens_buf[1] = lsens % 10 + 0x30;
+			lsens_buf[2] = '\0';
+			LCD_ShowString(51, 40, tftlcd_data.width, tftlcd_data.height, 16, lsens_buf);
 			sprintf(response, "AT+MQTTPUB=0,\"%s\",\"{\\\"type\\\": \\\"browser-lsens\\\"\\, \\\"lsens\\\": \\\"%d\\\"\\}\",0,0", MQTT_TOPIC, lsens);
 			// printf("发送温湿度数据：%s，成功标志：%d\r\n", response, ESP8266_Cmd(response, "OK", "", 5000));
 			LCD_ShowString(0, MESSAGE_y, tftlcd_data.width, tftlcd_data.height, 16, "sending lsens message...");
 			ESP8266_Cmd(response, 0, 0, 5000);
 			LCD_Fill(0, MESSAGE_y, tftlcd_data.width, MESSAGE_y + 16, BLACK);
-			printf("发送一次光敏信息 %s\r\n", lsens_buf);
+			printf("发送一次光敏信息：%d\r\n", lsens);
 		}
 
 		// wifi模块

@@ -3,4 +3,4 @@ Obj/
 .vscode/
 .git/
 my_mqtt.h
-*.uvguix.*
+Template.uvguix.*
