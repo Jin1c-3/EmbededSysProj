@@ -338,7 +338,7 @@
               <MiscControls></MiscControls>
               <Define>USE_STDPERIPH_DRIVER,STM32F10X_HD</Define>
               <Undefine></Undefine>
-              <IncludePath>.\User;.\Libraries\CMSIS;.\Libraries\STM32F10x_StdPeriph_Driver\inc;.\APP\led;.\Public;.\APP\beep;.\APP\smg;.\APP\key;.\APP\exti;.\APP\time;.\APP\pwm;.\APP\iwdg;.\APP\wwdg;.\APP\input;.\APP\touch_key;.\APP\wkup;.\APP\adc;.\APP\adc_temp;.\APP\dac;.\APP\pwm_dac;.\APP\dma;.\APP\rtc;.\APP\24Cxx;.\APP\iic;.\APP\ds18b20;.\APP\hwjs;.\APP\rs485;.\APP\can;.\APP\tftlcd;.\APP\spi;.\APP\nrf24l01;.\APP\dht11;.\APP\esp8266;.\APP\usart3;.\APP\pwm;.\APP\cJSON;.\APP\ws2812;.\APP\touch;.\APP\lsens;.\APP\iwdg;.\APP\exti;.\APP\hwjs</IncludePath>
+              <IncludePath>.\User;.\Libraries\CMSIS;.\Libraries\STM32F10x_StdPeriph_Driver\inc;.\APP\led;.\Public;.\APP\beep;.\APP\smg;.\APP\key;.\APP\exti;.\APP\time;.\APP\pwm;.\APP\iwdg;.\APP\wwdg;.\APP\input;.\APP\touch_key;.\APP\wkup;.\APP\adc;.\APP\adc_temp;.\APP\dac;.\APP\pwm_dac;.\APP\dma;.\APP\rtc;.\APP\24Cxx;.\APP\iic;.\APP\ds18b20;.\APP\hwjs;.\APP\rs485;.\APP\can;.\APP\tftlcd;.\APP\spi;.\APP\nrf24l01;.\APP\dht11;.\APP\esp8266;.\APP\usart3;.\APP\pwm;.\APP\cJSON;.\APP\ws2812;.\APP\touch;.\APP\lsens;.\APP\iwdg;.\APP\exti;.\APP\hwjs;.\APP\touch_key</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>
@@ -611,6 +611,11 @@
               <FileName>exti.c</FileName>
               <FileType>1</FileType>
               <FilePath>.\APP\exti\exti.c</FilePath>
+            </File>
+            <File>
+              <FileName>touch_key.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\APP\touch_key\touch_key.c</FilePath>
             </File>
           </Files>
         </Group>

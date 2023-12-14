@@ -19,6 +19,7 @@
 #include "exti.h"
 #include "iwdg.h"
 #include "hwjs.h"
+#include "touch_key.h"
 
 #ifndef _mymqtt_H
 #define MQTT_CLIENT_ID "你的clientid"
@@ -65,6 +66,7 @@ void Hardware_Check(void)
 	u8 fsize;
 	u16 ypos = 0;
 	u16 j = 0;
+
 	char command[120] = {0};
 
 	SysTick_Init(72);								// 延时初始化
@@ -75,12 +77,13 @@ void Hardware_Check(void)
 	BEEP_Init();									// 蜂鸣器初始化
 	KEY_Init();										// 按键初始化
 	TIM3_CH2_PWM_Init(500, 72 - 1);					// 频率是2Kh
+	TIM4_CH3_PWN_INIT(500, 72 - 1);					// 频率是2Kh
 	Lsens_Init();									// 初始化光敏传感器
 	TP_Init();										// 触摸屏初始化
-	My_EXTI_Init();									// 外部中断初始化
+	Touch_Key_Init(6);								// 计数频率为12M
 	Hwjs_Init();
 
-	TIM_SetCompare2(TIM3, 0);
+	TIM_SetCompare2(TIM3, 300);
 	delay_ms(50);
 	TIM_SetCompare2(TIM3, 499);
 
@@ -195,9 +198,9 @@ void Hardware_Check(void)
 	LED2 = 1;
 
 	// 蜂鸣器短叫,提示正常启动
-	BEEP = 1;
+	TIM_SetCompare3(TIM4, 499);
 	delay_ms(100);
-	BEEP = 0;
+	TIM_SetCompare3(TIM4, 0);
 	printf("测试中文,test english\r\n");
 	printf("系统初始化完成\r\n");
 	LCD_Clear(BLACK);
@@ -205,6 +208,11 @@ void Hardware_Check(void)
 
 int main()
 {
+	int fancy_beep_walker = 499;
+	u8 fancy_beep_convertor = 0;
+	u8 fancy_beep_on = 0;
+	int fancy_beep_stop_timer = 0;
+
 	u8 temp, humi, lsens = 0;
 	u8 temp_buf[3], humi_buf[3], lsens_buf[3];
 	char response[120] = {0};
@@ -216,9 +224,10 @@ int main()
 	u32 rgb_color[] = {RGB_COLOR_RED, RGB_COLOR_GREEN, RGB_COLOR_BLUE, RGB_COLOR_WHITE, RGB_COLOR_YELLOW, RGB_COLOR_PINK};
 	u8 rgb_color_count = sizeof(rgb_color) / sizeof(rgb_color[0]);
 	char rgb_on = 0;
-	char rgb_current_main_color = -1; // 用于保存当前颜色索引，初始值为-1表示没有设置颜色
-	int rgb_stop_timer = 0;			  // 定时器计数器
-	int rgb_current_char = -1;		  // RGB彩灯的数字，为-1时表示没有数字
+	char rgb_refresh = 0;
+	int rgb_current_main_color = -1; // 用于保存当前颜色索引，初始值为-1表示没有设置颜色
+	int rgb_stop_timer = 0;			 // 定时器计数器
+	int rgb_current_char = -1;		 // RGB彩灯的数字，为-1时表示没有数字
 	char hw_buf[9];
 
 	Hardware_Check();
@@ -226,7 +235,7 @@ int main()
 	sprintf(response, "AT+MQTTPUB=0,\"%s\",\"{\\\"type\\\": \\\"browser-status\\\"\\, \\\"status\\\": \\\"OK\\\"\\}\",0,0", MQTT_TOPIC);
 	// printf("发送状态确认：%s，成功标志：%d\r\n", response, ESP8266_Cmd(response, "OK", "", 5000));
 	LCD_ShowString(0, MESSAGE_y, tftlcd_data.width, tftlcd_data.height, 16, "sending status message...");
-	ESP8266_Cmd(response, 0, 0, 5000);
+	ESP8266_Cmd(response, "OK", 0, 5000);
 	LCD_Fill(0, MESSAGE_y, tftlcd_data.width, MESSAGE_y + 16, BLACK);
 
 	LCD_ShowString(0, 0, tftlcd_data.width, tftlcd_data.height, 16, "Temp:   degree celsius");
@@ -247,19 +256,53 @@ int main()
 	LCD_ShowString(BUTTON_FIRST_x + BUTTON_WIDTH * 3 / 2 - 40, BUTTON_FIRST_y + BUTTON_HEIGHT * 5 / 2 - 8, tftlcd_data.width, tftlcd_data.height, 16, "Color Off");
 
 	IWDG_Init(4, 800); // 只要在1280ms内进行喂狗就不会复位系统
+	My_EXTI_Init();	   // 外部中断初始化
 	do
 	{
 		IWDG_FeedDog(); // 喂狗
+
+		// 触摸按键模块
+		if (Touch_Key_Scan(0))
+		{
+			fancy_beep_on = !fancy_beep_on;
+		}
+		if (fancy_beep_on)
+		{
+			if (fancy_beep_convertor == 0)
+			{
+				fancy_beep_walker += 10;
+				if (fancy_beep_walker == 450)
+				{
+					fancy_beep_convertor = 1;
+				}
+			}
+			else
+			{
+				fancy_beep_walker -= 10;
+				if (fancy_beep_walker == 0)
+				{
+					fancy_beep_convertor = 0;
+				}
+			}
+		}
+		else
+		{
+			fancy_beep_walker = 0;
+		}
+		TIM_SetCompare3(TIM4, fancy_beep_walker); // i值最大可以取499，因为ARR最大值是499.
+
 		// 红外感应模块
 		if (hw_jsbz == 1) // 如果红外接收到
 		{
-			hw_jsbz = 0;							// 清零
+			hw_jsbz = 0;								 // 清零
+			printf("接收到红外数据：%0.8X\r\n", hw_jsm); // 打印接收到的数据
 			sprintf(hw_buf, "%0.8X", hw_jsm);
 
-			// 红外——上一首按键
+			// 红外按键——上一首
 			if (!strcmp(hw_buf, "00FF02FD"))
 			{
 				rgb_on = 1;
+				rgb_refresh = 1;
 				if (--rgb_current_main_color < 0)
 				{
 					rgb_current_main_color += rgb_color_count;
@@ -277,9 +320,11 @@ int main()
 					RGB_ShowCharNum(rgb_current_char, rgb_color[rgb_current_main_color]);
 				}
 			}
+			// 红外按键——下一首
 			else if (!strcmp(hw_buf, "00FFC23D"))
 			{
 				rgb_on = 1;
+				rgb_refresh = 1;
 				// rgb当前没有显示字符
 				if (rgb_current_char == -1)
 				{
@@ -292,6 +337,94 @@ int main()
 				{
 					RGB_ShowCharNum(rgb_current_char, rgb_color[++rgb_current_main_color % rgb_color_count]);
 				}
+			}
+			// 红外按键——停播
+			else if (!strcmp(hw_buf, "00FF22DD"))
+			{
+				rgb_on = 0;
+				RGB_LED_Clear();
+				rgb_current_main_color = -1;
+				rgb_current_char = -1;
+			}
+			// 红外按键——0
+			else if (!strcmp(hw_buf, "00FF6897"))
+			{
+				rgb_current_char = 0;
+				RGB_ShowCharNum(rgb_current_char, rgb_color[rgb_current_main_color == -1 ? 0 : rgb_current_main_color]);
+				rgb_on = 1;
+				rgb_refresh = 1;
+			}
+			// 红外按键——1
+			else if (!strcmp(hw_buf, "00FF30CF"))
+			{
+				rgb_current_char = 1;
+				RGB_ShowCharNum(rgb_current_char, rgb_color[rgb_current_main_color == -1 ? 0 : rgb_current_main_color]);
+				rgb_on = 1;
+				rgb_refresh = 1;
+			}
+			// 红外按键——2
+			else if (!strcmp(hw_buf, "00FF18E7"))
+			{
+				rgb_current_char = 2;
+				RGB_ShowCharNum(rgb_current_char, rgb_color[rgb_current_main_color == -1 ? 0 : rgb_current_main_color]);
+				rgb_on = 1;
+				rgb_refresh = 1;
+			}
+			// 红外按键——3
+			else if (!strcmp(hw_buf, "00FF7A85"))
+			{
+				rgb_current_char = 3;
+				RGB_ShowCharNum(rgb_current_char, rgb_color[rgb_current_main_color == -1 ? 0 : rgb_current_main_color]);
+				rgb_on = 1;
+				rgb_refresh = 1;
+			}
+			// 红外按键——4
+			else if (!strcmp(hw_buf, "00FF10EF"))
+			{
+				rgb_current_char = 4;
+				RGB_ShowCharNum(rgb_current_char, rgb_color[rgb_current_main_color == -1 ? 0 : rgb_current_main_color]);
+				rgb_on = 1;
+				rgb_refresh = 1;
+			}
+			// 红外按键——5
+			else if (!strcmp(hw_buf, "00FF38C7"))
+			{
+				rgb_current_char = 5;
+				RGB_ShowCharNum(rgb_current_char, rgb_color[rgb_current_main_color == -1 ? 0 : rgb_current_main_color]);
+				rgb_on = 1;
+				rgb_refresh = 1;
+			}
+			// 红外按键——6
+			else if (!strcmp(hw_buf, "00FF5AA5"))
+			{
+				rgb_current_char = 6;
+				RGB_ShowCharNum(rgb_current_char, rgb_color[rgb_current_main_color == -1 ? 0 : rgb_current_main_color]);
+				rgb_on = 1;
+				rgb_refresh = 1;
+			}
+			// 红外按键——7
+			else if (!strcmp(hw_buf, "00FF42BD"))
+			{
+				rgb_current_char = 7;
+				RGB_ShowCharNum(rgb_current_char, rgb_color[rgb_current_main_color == -1 ? 0 : rgb_current_main_color]);
+				rgb_on = 1;
+				rgb_refresh = 1;
+			}
+			// 红外按键——8
+			else if (!strcmp(hw_buf, "00FF4AB5"))
+			{
+				rgb_current_char = 8;
+				RGB_ShowCharNum(rgb_current_char, rgb_color[rgb_current_main_color == -1 ? 0 : rgb_current_main_color]);
+				rgb_on = 1;
+				rgb_refresh = 1;
+			}
+			// 红外按键——9
+			else if (!strcmp(hw_buf, "00FF52AD"))
+			{
+				rgb_current_char = 9;
+				RGB_ShowCharNum(rgb_current_char, rgb_color[rgb_current_main_color == -1 ? 0 : rgb_current_main_color]);
+				rgb_on = 1;
+				rgb_refresh = 1;
 			}
 			hw_jsm = 0; // 接收码清零
 		}
@@ -317,7 +450,7 @@ int main()
 			printf("发送一次温湿度信息\r\n");
 		}
 
-		if (!(lsens_stop_timer++ % 140000))
+		if (!(lsens_stop_timer++ % 350000))
 		{
 			// 光敏模块
 			lsens = Lsens_Get_Val();
@@ -361,17 +494,17 @@ int main()
 					printf("type:buzzer\r\n");
 					if (cJSON_GetObjectItem(json, "buzzer1")->valueint)
 					{
-						BEEP = 1;
+						TIM_SetCompare3(TIM4, 499);
 						delay_ms(100);
-						BEEP = 0;
+						TIM_SetCompare3(TIM4, 0);
 						delay_ms(50);
-						BEEP = 1;
+						TIM_SetCompare3(TIM4, 499);
 						delay_ms(100);
-						BEEP = 0;
+						TIM_SetCompare3(TIM4, 0);
 						delay_ms(50);
-						BEEP = 1;
+						TIM_SetCompare3(TIM4, 499);
 						delay_ms(100);
-						BEEP = 0;
+						TIM_SetCompare3(TIM4, 0);
 					}
 				}
 				else if (!strcmp(cJSON_GetObjectItem(json, "type")->valuestring, "motor"))
@@ -409,6 +542,7 @@ int main()
 					rgb_current_main_color = cJSON_GetObjectItem(json, "color")->valueint % rgb_color_count;
 					RGB_ShowCharNum(rgb_current_char, rgb_color[rgb_current_main_color]);
 					rgb_on = 1;
+					rgb_refresh = 1;
 				}
 				else
 				{
@@ -455,17 +589,17 @@ int main()
 				// 蜂鸣器三连
 				if (tp_dev.x[0] > BUTTON_FIRST_x && tp_dev.x[0] <= BUTTON_FIRST_x + BUTTON_WIDTH)
 				{
-					BEEP = 1;
+					TIM_SetCompare3(TIM4, 499);
 					delay_ms(100);
-					BEEP = 0;
+					TIM_SetCompare3(TIM4, 0);
 					delay_ms(50);
-					BEEP = 1;
+					TIM_SetCompare3(TIM4, 499);
 					delay_ms(100);
-					BEEP = 0;
+					TIM_SetCompare3(TIM4, 0);
 					delay_ms(50);
-					BEEP = 1;
+					TIM_SetCompare3(TIM4, 499);
 					delay_ms(100);
-					BEEP = 0;
+					TIM_SetCompare3(TIM4, 0);
 				}
 				// 电机循环变化
 				else if (tp_dev.x[0] > BUTTON_FIRST_x + BUTTON_WIDTH && tp_dev.x[0] <= BUTTON_FIRST_x + BUTTON_WIDTH * 2)
@@ -496,6 +630,7 @@ int main()
 				if (tp_dev.x[0] > BUTTON_FIRST_x && tp_dev.x[0] <= BUTTON_FIRST_x + BUTTON_WIDTH)
 				{
 					rgb_on = 1;
+					rgb_refresh = 1;
 					// rgb当前没有显示字符
 					if (rgb_current_char == -1)
 					{
@@ -517,6 +652,11 @@ int main()
 					rgb_current_char = -1;
 				}
 			}
+		}
+		if (rgb_refresh)
+		{
+			rgb_refresh = 0;
+			rgb_stop_timer = 0;
 		}
 		if (rgb_on && ++rgb_stop_timer > 400000)
 		{

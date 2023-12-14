@@ -62,7 +62,7 @@ void EXTI0_IRQHandler(void)
 	{
 		if (KEY_UP == 1)
 		{
-			printf("程序崩溃！\r\n");
+			printf("程序即将崩溃！\r\n");
 			while (1)
 				;
 		}
@@ -81,11 +81,12 @@ void EXTI2_IRQHandler(void)
 	char response[120] = {0};
 	if (EXTI_GetITStatus(EXTI_Line2) == 1)
 	{
-		// delay_ms(10);
-		if (KEY1 == 0)
+		delay_ms(10);
+		if (KEY2 == 0)
 		{
 			sprintf(response, "AT+MQTTPUB=0,\"%s\",\"{\\\"type\\\": \\\"browser-warning\\\"\\, \\\"warn\\\": \\\"1\\\"\\}\",0,0", MQTT_TOPIC);
 			ESP8266_Cmd(response, 0, 0, 5000);
+			printf("发送一次紧急通知信息：%s\r\n", response);
 		}
 	}
 	EXTI_ClearITPendingBit(EXTI_Line2);
