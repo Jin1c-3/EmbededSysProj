@@ -429,7 +429,7 @@ int main()
 			hw_jsm = 0; // 接收码清零
 		}
 
-		if (!(temp_humi_stop_timer++ % 400000))
+		if (!(temp_humi_stop_timer++ % 500000))
 		{
 			// 温湿度模块
 			DHT11_Read_Data(&temp, &humi); // 读取一次DHT11数据最少要大于100ms
@@ -450,7 +450,7 @@ int main()
 			printf("发送一次温湿度信息\r\n");
 		}
 
-		if (!(lsens_stop_timer++ % 350000))
+		if (!(lsens_stop_timer++ % 450000))
 		{
 			// 光敏模块
 			lsens = Lsens_Get_Val();

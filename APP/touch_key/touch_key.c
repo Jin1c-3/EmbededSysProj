@@ -128,7 +128,6 @@ u8 Touch_Key_Init(u8 psc)
 		temp+=buf[i];
 	}
 	touch_default_val=temp/6;
-	printf("touch_default_val=%d \r\n",touch_default_val);
 	if(touch_default_val>Touch_ARR_MAX_VAL/2)
 	{
 		return 1;//初始化遇到超过Touch_ARR_MAX_VAL/2的数值,不正常!
@@ -181,7 +180,6 @@ u8 Touch_Key_Scan(u8 mode)
 		{
 			res=1;
 		}	   
-		printf("触摸后捕获高电平值为：%d\r\n",rval);		     	    					   
 		keyen=3;				//至少要再过3次之后才能按键有效   
 	} 
 	if(keyen)keyen--;		   							   		     	    					   
