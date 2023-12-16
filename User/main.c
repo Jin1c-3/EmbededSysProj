@@ -158,7 +158,7 @@ void Hardware_Check(void)
 	sprintf(command, "AT+MQTTUSERCFG=0,1,\"%s\",\"%s\",\"%s\",0,0,\"\"", MQTT_CLIENT_ID, MQTT_USERNAME, MQTT_PASSWORD);
 	while (!ESP8266_Cmd(command, "OK", "", 1500))
 	{
-		system_error_show(5, ypos + fsize * j, "wifi connection Error!", fsize);
+		system_error_show(5, ypos + fsize * j, "mqtt usercfg Error!", fsize);
 		printf("%s\r\n", command);
 	};
 
@@ -211,7 +211,6 @@ int main()
 	int fancy_beep_walker = 499;
 	u8 fancy_beep_convertor = 0;
 	u8 fancy_beep_on = 0;
-	int fancy_beep_stop_timer = 0;
 
 	u8 temp, humi, lsens = 0;
 	u8 temp_buf[3], humi_buf[3], lsens_buf[3];
@@ -429,7 +428,7 @@ int main()
 			hw_jsm = 0; // 接收码清零
 		}
 
-		if (!(temp_humi_stop_timer++ % 500000))
+		if (!(temp_humi_stop_timer++ % 4000))
 		{
 			// 温湿度模块
 			DHT11_Read_Data(&temp, &humi); // 读取一次DHT11数据最少要大于100ms
@@ -450,7 +449,7 @@ int main()
 			printf("发送一次温湿度信息\r\n");
 		}
 
-		if (!(lsens_stop_timer++ % 450000))
+		if (!(lsens_stop_timer++ % 3000))
 		{
 			// 光敏模块
 			lsens = Lsens_Get_Val();
@@ -658,7 +657,7 @@ int main()
 			rgb_refresh = 0;
 			rgb_stop_timer = 0;
 		}
-		if (rgb_on && ++rgb_stop_timer > 400000)
+		if (rgb_on && ++rgb_stop_timer > 4000)
 		{
 			rgb_on = 0;			// 关闭灯
 			rgb_stop_timer = 0; // 重置计时器

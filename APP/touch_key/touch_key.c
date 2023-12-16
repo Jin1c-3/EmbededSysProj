@@ -166,7 +166,7 @@ u8 Touch_Key_Scan(u8 mode)
 {
 	static u8 keyen=0;	//0,可以开始检测;>0,还不能开始检测	 
 	u8 res=0;
-	u8 sample=3;		//默认采样次数为3次	 
+	u8 sample=1;		//默认采样次数为3次	 
 	u16 rval;
 	if(mode)
 	{

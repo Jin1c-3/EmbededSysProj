@@ -55,7 +55,7 @@ u16 Get_ADC3(u8 ch)
 	return ADC_GetConversionValue(ADC3); // 返回最近一次ADC3规则组的转换结果
 }
 
-#define LSENS_READ_TIMES 10 // 定义光敏传感器读取次数,读这么多次,然后取平均值
+#define LSENS_READ_TIMES 5 // 定义光敏传感器读取次数,读这么多次,然后取平均值
 
 // 读取Light Sens的值
 // 0~100:0,最暗;100,最亮
@@ -66,7 +66,7 @@ u8 Lsens_Get_Val(void)
 	for (t = 0; t < LSENS_READ_TIMES; t++)
 	{
 		temp_val += Get_ADC3(ADC_Channel_6); // 读取ADC值
-		delay_ms(5);
+		delay_us(500);
 	}
 	temp_val /= LSENS_READ_TIMES; // 得到平均值
 	if (temp_val > 4000)

@@ -3,7 +3,7 @@
 
 #include "system.h"
 
-#define RGB_LED GPIO_Pin_6
+#define RGB_LED GPIO_Pin_5
 #define RGB_LED_HIGH (GPIO_SetBits(GPIOE, RGB_LED))
 #define RGB_LED_LOW (GPIO_ResetBits(GPIOE, RGB_LED))
 
