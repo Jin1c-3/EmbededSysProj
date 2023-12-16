@@ -30,8 +30,10 @@
 #define MQTT_TOPIC "你的主题"
 #endif
 
-char *WIFI_NAME_LIST[] = {"qing", "zhang"};
-char *WIFI_KEY_LIST[] = {"18289255", "12345678"};
+//char *WIFI_NAME_LIST[] = {"qing", "zhang"};
+//char *WIFI_KEY_LIST[] = {"18289255", "12345678"};
+char *WIFI_NAME_LIST[] = {"zhang", "qing"};
+char *WIFI_KEY_LIST[] = {"12345678", "18289255"};
 u8 WIFI_COUNT = sizeof(WIFI_NAME_LIST) / sizeof(WIFI_NAME_LIST[0]);
 
 #define MESSAGE_y 60
@@ -83,7 +85,7 @@ void Hardware_Check(void)
 	Touch_Key_Init(6);								// 计数频率为12M
 	Hwjs_Init();
 
-	TIM_SetCompare2(TIM3, 300);
+	TIM_SetCompare2(TIM3, 0);
 	delay_ms(50);
 	TIM_SetCompare2(TIM3, 499);
 
@@ -208,7 +210,7 @@ void Hardware_Check(void)
 
 int main()
 {
-	int fancy_beep_walker = 499;
+	int fancy_beep_walker;
 	u8 fancy_beep_convertor = 0;
 	u8 fancy_beep_on = 0;
 
@@ -254,7 +256,7 @@ int main()
 	LCD_ShowString(BUTTON_FIRST_x + BUTTON_WIDTH / 2 - 50, BUTTON_FIRST_y + BUTTON_HEIGHT * 5 / 2 - 8, tftlcd_data.width, tftlcd_data.height, 16, "Switch Color");
 	LCD_ShowString(BUTTON_FIRST_x + BUTTON_WIDTH * 3 / 2 - 40, BUTTON_FIRST_y + BUTTON_HEIGHT * 5 / 2 - 8, tftlcd_data.width, tftlcd_data.height, 16, "Color Off");
 
-	IWDG_Init(4, 800); // 只要在1280ms内进行喂狗就不会复位系统
+	IWDG_Init(6, 1000); // 只要在1280ms内进行喂狗就不会复位系统
 	My_EXTI_Init();	   // 外部中断初始化
 	do
 	{
@@ -267,20 +269,20 @@ int main()
 		}
 		if (fancy_beep_on)
 		{
-			if (fancy_beep_convertor == 0)
+			if (fancy_beep_convertor)
 			{
-				fancy_beep_walker += 10;
-				if (fancy_beep_walker == 450)
+				fancy_beep_walker -= 10;
+				if (fancy_beep_walker <= 10)
 				{
-					fancy_beep_convertor = 1;
+					fancy_beep_convertor = 0;
 				}
 			}
 			else
 			{
-				fancy_beep_walker -= 10;
-				if (fancy_beep_walker == 0)
+				fancy_beep_walker += 10;
+				if (fancy_beep_walker >= 450)
 				{
-					fancy_beep_convertor = 0;
+					fancy_beep_convertor = 1;
 				}
 			}
 		}
@@ -288,6 +290,7 @@ int main()
 		{
 			fancy_beep_walker = 0;
 		}
+//		printf("fancy_beep_walker %d\r\n",fancy_beep_walker);
 		TIM_SetCompare3(TIM4, fancy_beep_walker); // i值最大可以取499，因为ARR最大值是499.
 
 		// 红外感应模块
