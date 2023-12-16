@@ -30,10 +30,10 @@
 #define MQTT_TOPIC "你的主题"
 #endif
 
-//char *WIFI_NAME_LIST[] = {"qing", "zhang"};
-//char *WIFI_KEY_LIST[] = {"18289255", "12345678"};
-char *WIFI_NAME_LIST[] = {"zhang", "qing"};
-char *WIFI_KEY_LIST[] = {"12345678", "18289255"};
+char *WIFI_NAME_LIST[] = {"qing", "zhang"};
+char *WIFI_KEY_LIST[] = {"18289255", "12345678"};
+// char *WIFI_NAME_LIST[] = {"zhang", "qing"};
+// char *WIFI_KEY_LIST[] = {"12345678", "18289255"};
 u8 WIFI_COUNT = sizeof(WIFI_NAME_LIST) / sizeof(WIFI_NAME_LIST[0]);
 
 #define MESSAGE_y 60
@@ -41,6 +41,7 @@ u8 WIFI_COUNT = sizeof(WIFI_NAME_LIST) / sizeof(WIFI_NAME_LIST[0]);
 #define BUTTON_FIRST_y 80
 #define BUTTON_HEIGHT 80
 #define BUTTON_WIDTH 120
+#define MESSAGE_INTERVAL 6000
 
 // 显示错误信息
 // x,y:坐标
@@ -257,7 +258,7 @@ int main()
 	LCD_ShowString(BUTTON_FIRST_x + BUTTON_WIDTH * 3 / 2 - 40, BUTTON_FIRST_y + BUTTON_HEIGHT * 5 / 2 - 8, tftlcd_data.width, tftlcd_data.height, 16, "Color Off");
 
 	IWDG_Init(6, 1000); // 只要在1280ms内进行喂狗就不会复位系统
-	My_EXTI_Init();	   // 外部中断初始化
+	My_EXTI_Init();		// 外部中断初始化
 	do
 	{
 		IWDG_FeedDog(); // 喂狗
@@ -290,7 +291,7 @@ int main()
 		{
 			fancy_beep_walker = 0;
 		}
-//		printf("fancy_beep_walker %d\r\n",fancy_beep_walker);
+		//		printf("fancy_beep_walker %d\r\n",fancy_beep_walker);
 		TIM_SetCompare3(TIM4, fancy_beep_walker); // i值最大可以取499，因为ARR最大值是499.
 
 		// 红外感应模块
@@ -431,7 +432,7 @@ int main()
 			hw_jsm = 0; // 接收码清零
 		}
 
-		if (!(temp_humi_stop_timer++ % 4000))
+		if (!(temp_humi_stop_timer++ % MESSAGE_INTERVAL))
 		{
 			// 温湿度模块
 			DHT11_Read_Data(&temp, &humi); // 读取一次DHT11数据最少要大于100ms
@@ -452,7 +453,7 @@ int main()
 			printf("发送一次温湿度信息\r\n");
 		}
 
-		if (!(lsens_stop_timer++ % 3000))
+		if (!((lsens_stop_timer++ + MESSAGE_INTERVAL / 2) % MESSAGE_INTERVAL))
 		{
 			// 光敏模块
 			lsens = Lsens_Get_Val();
