@@ -1,6 +1,7 @@
 #include "touch_key.h"
 #include "SysTick.h"
 #include "usart.h"
+#include "stdio.h"
 
 #define Touch_ARR_MAX_VAL 0xffff  //最大的ARR值	
 u16 touch_default_val=0;  //为按下触摸按键时的值
@@ -162,17 +163,18 @@ u16 Touch_Get_MaxVal(u8 n)
 					 1：有按下
 *******************************************************************************/										  
 #define TOUCH_GATE_VAL 	100	//触摸的门限值,也就是必须大于tpad_default_val+TOUCH_GATE_VAL,才认为是有效触摸.
-u8 Touch_Key_Scan(u8 mode)
+u8 Touch_Key_Scan()
 {
 	static u8 keyen=0;	//0,可以开始检测;>0,还不能开始检测	 
 	u8 res=0;
-	u8 sample=1;		//默认采样次数为3次	 
+	u8 sample=3;		//默认采样次数为3次	 
 	u16 rval;
-	if(mode)
-	{
-		sample=6;	//支持连按的时候，设置采样次数为6次
-		keyen=0;	//支持连按	  
-	}
+
+//	if(mode)
+//	{
+//		sample=6;	//支持连按的时候，设置采样次数为6次
+//		keyen=0;	//支持连按	  
+//	}
 	rval=Touch_Get_MaxVal(sample); 
 	if(rval>(touch_default_val+TOUCH_GATE_VAL)&&rval<(10*touch_default_val))//大于touch_default_val+TPAD_GATE_VAL,且小于10倍touch_default_val,则有效
 	{							 
@@ -182,6 +184,7 @@ u8 Touch_Key_Scan(u8 mode)
 		}	   
 		keyen=3;				//至少要再过3次之后才能按键有效   
 	} 
-	if(keyen)keyen--;		   							   		     	    					   
+	if(keyen)keyen--;		
+	printf("[Touch_Key_Scan] res  %d\r\n" ,res);	
 	return res;
 }	 

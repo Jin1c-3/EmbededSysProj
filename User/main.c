@@ -20,7 +20,7 @@
 #include "iwdg.h"
 #include "hwjs.h"
 #include "touch_key.h"
-
+#include "time.h"
 #ifndef _mymqtt_H
 #define MQTT_CLIENT_ID "你的clientid"
 #define MQTT_USERNAME "你的用户名"
@@ -41,7 +41,7 @@ u8 WIFI_COUNT = sizeof(WIFI_NAME_LIST) / sizeof(WIFI_NAME_LIST[0]);
 #define BUTTON_FIRST_y 80
 #define BUTTON_HEIGHT 80
 #define BUTTON_WIDTH 120
-#define MESSAGE_INTERVAL 4000
+#define MESSAGE_INTERVAL 200000
 
 // 显示错误信息
 // x,y:坐标
@@ -207,14 +207,11 @@ void Hardware_Check(void)
 	printf("测试中文,test english\r\n");
 	printf("系统初始化完成\r\n");
 	LCD_Clear(BLACK);
+	TIM6_Init(100,36000-1);  //定时500ms
 }
 
 int main()
 {
-	int fancy_beep_walker;
-	u8 fancy_beep_convertor = 0;
-	u8 fancy_beep_on = 0;
-
 	u8 temp, humi, lsens = 0;
 	u8 temp_buf[3], humi_buf[3], lsens_buf[3];
 	char response[120] = {0};
@@ -257,43 +254,12 @@ int main()
 	LCD_ShowString(BUTTON_FIRST_x + BUTTON_WIDTH / 2 - 50, BUTTON_FIRST_y + BUTTON_HEIGHT * 5 / 2 - 8, tftlcd_data.width, tftlcd_data.height, 16, "Switch Color");
 	LCD_ShowString(BUTTON_FIRST_x + BUTTON_WIDTH * 3 / 2 - 40, BUTTON_FIRST_y + BUTTON_HEIGHT * 5 / 2 - 8, tftlcd_data.width, tftlcd_data.height, 16, "Color Off");
 
-	IWDG_Init(6, 1000); // 只要在1280ms内进行喂狗就不会复位系统
+	IWDG_Init(6, 2000); // 只要在1280ms内进行喂狗就不会复位系统
 	My_EXTI_Init();		// 外部中断初始化
+	
 	do
 	{
 		IWDG_FeedDog(); // 喂狗
-
-		// 触摸按键模块
-		if (Touch_Key_Scan(0))
-		{
-			fancy_beep_on = !fancy_beep_on;
-		}
-		if (fancy_beep_on)
-		{
-			if (fancy_beep_convertor)
-			{
-				fancy_beep_walker -= 10;
-				if (fancy_beep_walker <= 10)
-				{
-					fancy_beep_convertor = 0;
-				}
-			}
-			else
-			{
-				fancy_beep_walker += 10;
-				if (fancy_beep_walker >= 450)
-				{
-					fancy_beep_convertor = 1;
-				}
-			}
-		}
-		else
-		{
-			fancy_beep_walker = 0;
-		}
-		//		printf("fancy_beep_walker %d\r\n",fancy_beep_walker);
-		TIM_SetCompare3(TIM4, fancy_beep_walker); // i值最大可以取499，因为ARR最大值是499.
-
 		// 红外感应模块
 		if (hw_jsbz == 1) // 如果红外接收到
 		{
@@ -495,6 +461,7 @@ int main()
 				else if (!strcmp(cJSON_GetObjectItem(json, "type")->valuestring, "buzzer"))
 				{
 					printf("type:buzzer\r\n");
+					printf("Received request: %s\r\n", request);
 					if (cJSON_GetObjectItem(json, "buzzer1")->valueint)
 					{
 						TIM_SetCompare3(TIM4, 499);
@@ -513,6 +480,7 @@ int main()
 				else if (!strcmp(cJSON_GetObjectItem(json, "type")->valuestring, "motor"))
 				{
 					printf("type:motor\r\n");
+					
 					motor_status = cJSON_GetObjectItem(json, "motor1")->valueint;
 					if (motor_status == 0)
 					{
@@ -661,7 +629,7 @@ int main()
 			rgb_refresh = 0;
 			rgb_stop_timer = 0;
 		}
-		if (rgb_on && ++rgb_stop_timer > 4000)
+		if (rgb_on && ++rgb_stop_timer > 150000)
 		{
 			rgb_on = 0;			// 关闭灯
 			rgb_stop_timer = 0; // 重置计时器
