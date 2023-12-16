@@ -76,11 +76,11 @@ bool ESP8266_Cmd(char *cmd, char *reply1, char *reply2, u32 waittime)
 {
 	strEsp8266_Fram_Record.InfBit.FramLength = 0; // 从新开始接收新的数据包
 	ESP8266_Usart("%s\r\n", cmd);
-
+	delay_ms(waittime); // 延时
 	if ((reply1 == 0) && (reply2 == 0)) // 不需要接收数据
 		return true;
 
-	delay_ms(waittime); // 延时
+
 
 	strEsp8266_Fram_Record.Data_RX_BUF[strEsp8266_Fram_Record.InfBit.FramLength] = '\0';
 

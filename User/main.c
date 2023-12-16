@@ -237,7 +237,7 @@ int main()
 	sprintf(response, "AT+MQTTPUB=0,\"%s\",\"{\\\"type\\\": \\\"browser-status\\\"\\, \\\"status\\\": \\\"OK\\\"\\}\",0,0", MQTT_TOPIC);
 	// printf("发送状态确认：%s，成功标志：%d\r\n", response, ESP8266_Cmd(response, "OK", "", 5000));
 	LCD_ShowString(0, MESSAGE_y, tftlcd_data.width, tftlcd_data.height, 16, "sending status message...");
-	ESP8266_Cmd(response, "OK", 0, 5000);
+	ESP8266_Cmd(response, "OK", 0, 500);
 	LCD_Fill(0, MESSAGE_y, tftlcd_data.width, MESSAGE_y + 16, BLACK);
 
 	LCD_ShowString(0, 0, tftlcd_data.width, tftlcd_data.height, 16, "Temp:   degree celsius");
@@ -448,7 +448,7 @@ int main()
 			sprintf(response, "AT+MQTTPUB=0,\"%s\",\"{\\\"type\\\": \\\"browser-DHT11\\\"\\, \\\"temp\\\": \\\"%d\\\"\\, \\\"humi\\\": \\\"%d\\\"\\}\",0,0", MQTT_TOPIC, temp, humi);
 			// printf("发送温湿度数据：%s，成功标志：%d\r\n", response, ESP8266_Cmd(response, "OK", "", 5000));
 			LCD_ShowString(0, MESSAGE_y, tftlcd_data.width, tftlcd_data.height, 16, "sending temp_humi message...");
-			ESP8266_Cmd(response, 0, 0, 5000);
+			ESP8266_Cmd(response, "OK", 0, 500);
 			LCD_Fill(0, MESSAGE_y, tftlcd_data.width, MESSAGE_y + 16, BLACK);
 			printf("发送一次温湿度信息\r\n");
 		}
@@ -464,7 +464,7 @@ int main()
 			sprintf(response, "AT+MQTTPUB=0,\"%s\",\"{\\\"type\\\": \\\"browser-lsens\\\"\\, \\\"lsens\\\": \\\"%d\\\"\\}\",0,0", MQTT_TOPIC, lsens);
 			// printf("发送温湿度数据：%s，成功标志：%d\r\n", response, ESP8266_Cmd(response, "OK", "", 5000));
 			LCD_ShowString(0, MESSAGE_y, tftlcd_data.width, tftlcd_data.height, 16, "sending lsens message...");
-			ESP8266_Cmd(response, 0, 0, 5000);
+			ESP8266_Cmd(response, "OK", 0, 500);
 			LCD_Fill(0, MESSAGE_y, tftlcd_data.width, MESSAGE_y + 16, BLACK);
 			printf("发送一次光敏信息：%d\r\n", lsens);
 		}
@@ -489,7 +489,7 @@ int main()
 					sprintf(response, "AT+MQTTPUB=0,\"%s\",\"{\\\"type\\\": \\\"browser-LED\\\"\\, \\\"led1\\\": %d\\, \\\"led2\\\": %d\\}\",0,0", MQTT_TOPIC, !LED1, !LED2);
 					// printf("发送LED数据：%s，成功标志：%d\r\n", response, ESP8266_Cmd(response, "OK", "", 5000));
 					LCD_ShowString(0, MESSAGE_y, tftlcd_data.width, tftlcd_data.height, 16, "sending LED message...");
-					ESP8266_Cmd(response, 0, 0, 5000);
+					ESP8266_Cmd(response, "OK", 0, 500);
 					LCD_Fill(0, MESSAGE_y, tftlcd_data.width, MESSAGE_y + 16, BLACK);
 				}
 				else if (!strcmp(cJSON_GetObjectItem(json, "type")->valuestring, "buzzer"))
@@ -529,7 +529,7 @@ int main()
 					sprintf(response, "AT+MQTTPUB=0,\"%s\",\"{\\\"type\\\": \\\"browser-motor\\\"\\, \\\"motor1\\\": %d\\}\",0,0", MQTT_TOPIC, motor_status);
 					// printf("发送motor数据：%s，成功标志：%d\r\n", response, ESP8266_Cmd(response, "OK", "", 5000));
 					LCD_ShowString(0, MESSAGE_y, tftlcd_data.width, tftlcd_data.height, 16, "sending motor message...");
-					ESP8266_Cmd(response, 0, 0, 5000);
+					ESP8266_Cmd(response, "OK", 0, 500);
 					LCD_Fill(0, MESSAGE_y, tftlcd_data.width, MESSAGE_y + 16, BLACK);
 				}
 				else if (!strcmp(cJSON_GetObjectItem(json, "type")->valuestring, "RGB"))
@@ -573,7 +573,7 @@ int main()
 					sprintf(response, "AT+MQTTPUB=0,\"%s\",\"{\\\"type\\\": \\\"browser-LED\\\"\\, \\\"led1\\\": %d\\, \\\"led2\\\": %d\\}\",0,0", MQTT_TOPIC, !LED1, !LED2);
 					// printf("发送LED数据：%s，成功标志：%d\r\n", response, ESP8266_Cmd(response, "OK", "", 5000));
 					LCD_ShowString(0, MESSAGE_y, tftlcd_data.width, tftlcd_data.height, 16, "sending LED message...");
-					ESP8266_Cmd(response, 0, 0, 5000);
+					ESP8266_Cmd(response, "OK", 0, 500);
 					LCD_Fill(0, MESSAGE_y, tftlcd_data.width, MESSAGE_y + 16, BLACK);
 				}
 				// LED2反转变化
@@ -583,7 +583,7 @@ int main()
 					sprintf(response, "AT+MQTTPUB=0,\"%s\",\"{\\\"type\\\": \\\"browser-LED\\\"\\, \\\"led1\\\": %d\\, \\\"led2\\\": %d\\}\",0,0", MQTT_TOPIC, !LED1, !LED2);
 					// printf("发送LED数据：%s，成功标志：%d\r\n", response, ESP8266_Cmd(response, "OK", "", 5000));
 					LCD_ShowString(0, MESSAGE_y, tftlcd_data.width, tftlcd_data.height, 16, "sending LED message...");
-					ESP8266_Cmd(response, 0, 0, 5000);
+					ESP8266_Cmd(response, "OK", 0, 500);
 					LCD_Fill(0, MESSAGE_y, tftlcd_data.width, MESSAGE_y + 16, BLACK);
 				}
 			}
@@ -623,7 +623,7 @@ int main()
 					sprintf(response, "AT+MQTTPUB=0,\"%s\",\"{\\\"type\\\": \\\"browser-motor\\\"\\, \\\"motor1\\\": %d\\}\",0,0", MQTT_TOPIC, motor_status);
 					// printf("发送motor数据：%s，成功标志：%d\r\n", response, ESP8266_Cmd(response, "OK", "", 5000));
 					LCD_ShowString(0, MESSAGE_y, tftlcd_data.width, tftlcd_data.height, 16, "sending motor message...");
-					ESP8266_Cmd(response, 0, 0, 5000);
+					ESP8266_Cmd(response, "OK", 0, 500);
 					LCD_Fill(0, MESSAGE_y, tftlcd_data.width, MESSAGE_y + 16, BLACK);
 				}
 			}
