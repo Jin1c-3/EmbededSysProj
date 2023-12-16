@@ -41,7 +41,7 @@ u8 WIFI_COUNT = sizeof(WIFI_NAME_LIST) / sizeof(WIFI_NAME_LIST[0]);
 #define BUTTON_FIRST_y 80
 #define BUTTON_HEIGHT 80
 #define BUTTON_WIDTH 120
-#define MESSAGE_INTERVAL 6000
+#define MESSAGE_INTERVAL 4000
 
 // 显示错误信息
 // x,y:坐标
