@@ -185,6 +185,5 @@ u8 Touch_Key_Scan()
 		keyen=3;				//至少要再过3次之后才能按键有效   
 	} 
 	if(keyen)keyen--;		
-	printf("[Touch_Key_Scan] res  %d\r\n" ,res);	
 	return res;
 }	 
