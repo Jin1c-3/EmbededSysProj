@@ -32,8 +32,6 @@
 
 char *WIFI_NAME_LIST[] = {"qing", "zhang"};
 char *WIFI_KEY_LIST[] = {"18289255", "12345678"};
-// char *WIFI_NAME_LIST[] = {"zhang", "qing"};
-// char *WIFI_KEY_LIST[] = {"12345678", "18289255"};
 u8 WIFI_COUNT = sizeof(WIFI_NAME_LIST) / sizeof(WIFI_NAME_LIST[0]);
 
 #define MESSAGE_y 60
@@ -86,6 +84,7 @@ void Hardware_Check(void)
 	Touch_Key_Init(6);								// 计数频率为12M
 	Hwjs_Init();
 
+	// 检测电机
 	TIM_SetCompare2(TIM3, 0);
 	delay_ms(50);
 	TIM_SetCompare2(TIM3, 499);
@@ -204,10 +203,11 @@ void Hardware_Check(void)
 	TIM_SetCompare3(TIM4, 499);
 	delay_ms(100);
 	TIM_SetCompare3(TIM4, 0);
+
 	printf("测试中文,test english\r\n");
 	printf("系统初始化完成\r\n");
+
 	LCD_Clear(BLACK);
-	TIM6_Init(100,36000-1);  //定时500ms
 }
 
 int main()
@@ -254,9 +254,10 @@ int main()
 	LCD_ShowString(BUTTON_FIRST_x + BUTTON_WIDTH / 2 - 50, BUTTON_FIRST_y + BUTTON_HEIGHT * 5 / 2 - 8, tftlcd_data.width, tftlcd_data.height, 16, "Switch Color");
 	LCD_ShowString(BUTTON_FIRST_x + BUTTON_WIDTH * 3 / 2 - 40, BUTTON_FIRST_y + BUTTON_HEIGHT * 5 / 2 - 8, tftlcd_data.width, tftlcd_data.height, 16, "Color Off");
 
-	IWDG_Init(6, 2000); // 只要在1280ms内进行喂狗就不会复位系统
-	My_EXTI_Init();		// 外部中断初始化
-	
+	IWDG_Init(6, 2000);		   // 开始监测是否喂狗
+	My_EXTI_Init();			   // 外部中断初始化
+	TIM6_Init(100, 36000 - 1); // 开始监测触摸按钮
+
 	do
 	{
 		IWDG_FeedDog(); // 喂狗
@@ -432,7 +433,7 @@ int main()
 			LCD_ShowString(0, MESSAGE_y, tftlcd_data.width, tftlcd_data.height, 16, "sending lsens message...");
 			ESP8266_Cmd(response, "OK", 0, 500);
 			LCD_Fill(0, MESSAGE_y, tftlcd_data.width, MESSAGE_y + 16, BLACK);
-			printf("发送一次光敏信息：%d\r\n", lsens);
+			printf("发送一次光敏信息\r\n");
 		}
 
 		// wifi模块
@@ -461,7 +462,6 @@ int main()
 				else if (!strcmp(cJSON_GetObjectItem(json, "type")->valuestring, "buzzer"))
 				{
 					printf("type:buzzer\r\n");
-					printf("Received request: %s\r\n", request);
 					if (cJSON_GetObjectItem(json, "buzzer1")->valueint)
 					{
 						TIM_SetCompare3(TIM4, 499);
@@ -480,7 +480,6 @@ int main()
 				else if (!strcmp(cJSON_GetObjectItem(json, "type")->valuestring, "motor"))
 				{
 					printf("type:motor\r\n");
-					
 					motor_status = cJSON_GetObjectItem(json, "motor1")->valueint;
 					if (motor_status == 0)
 					{
@@ -629,7 +628,7 @@ int main()
 			rgb_refresh = 0;
 			rgb_stop_timer = 0;
 		}
-		if (rgb_on && ++rgb_stop_timer > 150000)
+		if (rgb_on && ++rgb_stop_timer > 1.5 * MESSAGE_INTERVAL)
 		{
 			rgb_on = 0;			// 关闭灯
 			rgb_stop_timer = 0; // 重置计时器
